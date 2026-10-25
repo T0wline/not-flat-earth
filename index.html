@@ -52,6 +52,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--path); outline-
 .nudge label{display:flex; justify-content:space-between; font-size:13px; color:var(--muted)}
 .nudge output{color:var(--fg); font-variant-numeric:tabular-nums}
 .nudge input{width:100%; margin:10px 0 0; accent-color:var(--path)}
+.nudge input+label{margin-top:14px}
 .nudge p{margin:8px 0 0; font-size:12px; color:var(--muted)}
 
 .sheet{position:absolute; left:0; right:0; bottom:0; z-index:3; padding:14px var(--gr) 14px var(--gl); background:var(--glass); border-top:1px solid var(--line);
@@ -120,7 +121,11 @@ dd{margin:2px 0 0; font:500 clamp(15px,4.5vw,18px)/1.25 var(--display); font-var
   <div class="nudge" id="nudge" hidden>
     <label for="offset"><span>Compass nudge</span><output id="offsetOut" for="offset">0°</output></label>
     <input id="offset" type="range" min="-30" max="30" step="1" value="0">
-    <p>If the marker sits off to one side, slide until it lines up with a place you know.</p>
+    <label for="smooth"><span>Smoothing</span><output id="smoothOut" for="smooth">6</output></label>
+    <input id="smooth" type="range" min="0" max="10" step="1" value="6">
+    <label for="zone"><span>Lock-on zone</span><output id="zoneOut" for="zone">±3°</output></label>
+    <input id="zone" type="range" min="0" max="8" step="1" value="3">
+    <p>Nudge lines the marker up with a place you know. More smoothing steadies a jumpy compass but lags a little. Inside the lock-on zone the marker holds still.</p>
   </div>
 
   <section class="sheet" id="sheet" aria-label="Readouts">
@@ -195,6 +200,31 @@ function basisFromLook(az,pitch){
 function project(b,d,F,cx,cy){
   const zc=dot(d,b.f),xc=dot(d,b.r),yc=dot(d,b.u),ok=zc>1e-6;
   return {zc:zc,xc:xc,yc:yc,x:ok?cx+F*xc/zc:NaN,y:ok?cy-F*yc/zc:NaN};
+}
+function vnorm(v){const n=Math.hypot(v[0],v[1],v[2])||1;return [v[0]/n,v[1]/n,v[2]/n];}
+function vcross(a,b){return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}
+function vang(a,b){return Math.acos(Math.max(-1,Math.min(1,dot(a,b))))/D2R;}
+function rotZ(v,deg){const c=Math.cos(deg*D2R),s=Math.sin(deg*D2R);return [v[0]*c+v[1]*s,-v[0]*s+v[1]*c,v[2]];}
+function filterStep(sb,raw,dt,smooth){
+  const dev=Math.max(vang(raw.f,sb.f),vang(raw.u,sb.u));
+  if(dev<0.15)return dev;
+  let k=1;
+  if(smooth>0){
+    const tau=Math.pow(1.35,smooth-6)*(0.04+0.36*Math.exp(-(dev/4)*(dev/4)));
+    k=1-Math.exp(-dt/tau);
+  }
+  for(let i=0;i<3;i++){sb.f[i]+=(raw.f[i]-sb.f[i])*k;sb.u[i]+=(raw.u[i]-sb.u[i])*k;}
+  return dev;
+}
+function smoothedBasis(sb,offsetDeg){
+  const f=vnorm(sb.f),d=dot(sb.u,f);
+  const u=vnorm([sb.u[0]-d*f[0],sb.u[1]-d*f[1],sb.u[2]-d*f[2]]);
+  const r=vcross(f,u);
+  return {f:rotZ(f,offsetDeg),u:rotZ(u,offsetDeg),r:rotZ(r,offsetDeg)};
+}
+function lockUpdate(locked,errDeg,zoneDeg){
+  if(zoneDeg<=0)return false;
+  return locked?errDeg<=zoneDeg*1.5:errDeg<zoneDeg;
 }
 //</math>
 
@@ -293,7 +323,7 @@ const VFOV=66;
 const app=$('app'),cv=$('view'),ctx=cv.getContext('2d'),cam=$('cam'),topEl=$('top'),sheet=$('sheet'),dockEl=$('dock');
 
 function loadSaved(){try{return JSON.parse(localStorage.getItem('earthlens'))||{};}catch(e){return {};}}
-function saveState(){try{localStorage.setItem('earthlens',JSON.stringify({from:from,to:to,unit:unit}));}catch(e){}}
+function saveState(){try{localStorage.setItem('earthlens',JSON.stringify({from:from,to:to,unit:unit,smooth:smooth,zone:zone}));}catch(e){}}
 function valid(p){return p&&typeof p.name==='string'&&isFinite(p.lat)&&isFinite(p.lon)&&Math.abs(p.lat)<=90&&Math.abs(p.lon)<=180;}
 const saved=loadSaved();
 let from=valid(saved.from)?saved.from:{name:'Space Needle, Seattle',lat:47.6205,lon:-122.3493};
@@ -305,8 +335,10 @@ function fmtDist(km){return fmtNum(km)+' '+UL[unit];}
 
 let A=null,S=0,DEP=0;
 let live=false,camOn=false,got=false,absSeen=false,headingOk=false;
-let offset=0,yaw=0,pitch=0,dpr=1,raf=0,toastTimer=0;
-const sm={alpha:0,beta:90,gamma:0};
+let offset=0,yaw=0,pitch=0,dpr=1,raf=0,toastTimer=0,lastT=0,locked=false;
+let smooth=Number.isFinite(saved.smooth)?Math.max(0,Math.min(10,Math.round(saved.smooth))):6;
+let zone=Number.isFinite(saved.zone)?Math.max(0,Math.min(8,Math.round(saved.zone))):3;
+const sb={f:[0,1,0],u:[0,0,1]};
 
 function setStatus(t){
   const el=$('toast');el.textContent=t;el.hidden=false;
@@ -338,13 +370,20 @@ function recompute(){
 
 function cssVar(n){return getComputedStyle(root).getPropertyValue(n).trim();}
 
-function funnel(x,y){
-  const rings=[[74,'#7a5632'],[60,'#5a3d25'],[46,'#41291a'],[33,'#2b1b12'],[20,'#170e09']];
-  ctx.save();ctx.globalAlpha=.85;ctx.lineWidth=1;ctx.strokeStyle='rgba(255,217,161,.5)';
-  rings.forEach(function(r){
-    ctx.fillStyle=r[1];ctx.beginPath();ctx.ellipse(x,y+(74-r[0])*0.16,r[0],r[0]*0.38,0,0,6.2832);ctx.fill();ctx.stroke();
-  });
+function marker(x,y,rot,aspect,thereC){
+  const rx=34,a=Math.max(0.16,Math.min(1,aspect)),ry=rx*a;
+  ctx.save();ctx.translate(x,y);ctx.rotate(rot);
+  const rings=[[1,'#7a5632'],[.76,'#553822'],[.52,'#35210f'],[.28,'#1a0f08']];
+  ctx.globalAlpha=.9;
+  rings.forEach(function(r){ctx.fillStyle=r[1];ctx.beginPath();ctx.ellipse(0,0,rx*r[0],ry*r[0],0,0,6.2832);ctx.fill();});
+  ctx.globalAlpha=1;
+  ctx.lineWidth=ry<9?4:6;ctx.strokeStyle='rgba(255,255,255,.92)';
+  ctx.beginPath();ctx.ellipse(0,0,rx,ry,0,0,6.2832);ctx.stroke();
+  ctx.lineWidth=ry<9?2:3;ctx.strokeStyle=thereC;
+  ctx.beginPath();ctx.ellipse(0,0,rx,ry,0,0,6.2832);ctx.stroke();
+  ctx.fillStyle=thereC;ctx.beginPath();ctx.arc(0,0,4,0,6.2832);ctx.fill();
   ctx.restore();
+  return Math.hypot(rx*Math.sin(rot),ry*Math.cos(rot))+3;
 }
 
 function slice(ix,iy,theta,youC,thereC){
@@ -372,7 +411,7 @@ function draw(){
   let vt=Math.max(0,tr.bottom-cr.top)+8,vb=Math.min(H,sr.top-cr.top)-8;
   if(!$('live').hidden||!$('gear').hidden)vb=Math.min(vb,dockEl.getBoundingClientRect().top-cr.top-6);
   if(vb-vt<120){vt=0;vb=H;}
-  const b=live?basisFromEuler(sm.alpha-offset,sm.beta,sm.gamma):basisFromLook(yaw,pitch);
+  const b=live?smoothedBasis(sb,offset):basisFromLook(yaw,pitch);
   const F=(H/2)/Math.tan(VFOV/2*D2R),cx=W/2,cy=H/2,L=3000;
   const ga=b.r[2],gb=-b.u[2],gc=b.f[2]*F,nn=Math.hypot(ga,gb);
   const youC=cssVar('--you'),thereC=cssVar('--there');
@@ -427,22 +466,22 @@ function draw(){
 
   const camAz=Math.atan2(b.f[0],b.f[1])/D2R,camEl=Math.asin(Math.max(-1,Math.min(1,b.f[2])))/D2R;
   const dAz=((A.az-camAz+540)%360)-180,dEl=A.el-camEl,hint=[];
-  if(Math.abs(dAz)>3)hint.push('turn '+(dAz>0?'right ':'left ')+Math.round(Math.abs(dAz))+'°');
-  if(Math.abs(dEl)>3)hint.push('tilt '+(dEl<0?'down ':'up ')+Math.round(Math.abs(dEl))+'°');
+  locked=lockUpdate(locked,vang(b.f,A.dir),zone);
+  if(!locked){
+    if(Math.abs(dAz)>=1)hint.push('turn '+(dAz>0?'right ':'left ')+Math.round(Math.abs(dAz))+'°');
+    if(Math.abs(dEl)>=1)hint.push('tilt '+(dEl<0?'down ':'up ')+Math.round(Math.abs(dEl))+'°');
+  }
   pill(hint.length?hint.join(' · '):'On target',cx,vt+16,!hint.length);
   slice(Math.max(16,8),vt+50,S/(RM/1000),youC,thereC);
 
   const q=project(b,A.dir,F,cx,cy),m=26;
-  const on=q.zc>0.02&&q.x>m&&q.x<W-m&&q.y>vt+m&&q.y<vb-m;
+  const on=locked||(q.zc>0.02&&q.x>m&&q.x<W-m&&q.y>vt+m&&q.y<vb-m);
   const label=shortName(to.name)+' · '+fmtDist(A.chordKm);
   if(on){
-    if(A.el<-8)funnel(q.x,q.y);
-    ctx.lineWidth=6;ctx.strokeStyle='rgba(255,255,255,.92)';
-    ctx.beginPath();ctx.arc(q.x,q.y,22,0,6.2832);ctx.stroke();
-    ctx.lineWidth=3;ctx.strokeStyle=thereC;
-    ctx.beginPath();ctx.arc(q.x,q.y,22,0,6.2832);ctx.stroke();
-    ctx.fillStyle=thereC;ctx.beginPath();ctx.arc(q.x,q.y,5,0,6.2832);ctx.fill();
-    pill(label,q.x,q.y-52);
+    const mx=locked?cx:q.x,my=locked?cy:q.y;
+    const rot=nn>=1e-4?Math.atan2(ga,-gb):0;
+    const ext=marker(mx,my,rot,Math.sin(S/(2*(RM/1000))),thereC);
+    pill(label,mx,my-ext-24);
   }else{
     let vx=q.xc,vy=-q.yc;const len=Math.hypot(vx,vy);
     if(len<1e-6){vx=0;vy=1;}else{vx/=len;vy/=len;}
@@ -489,12 +528,12 @@ function onOri(e){
   if(a==null||b==null||g==null)return;
   if(isAbs)absSeen=true;
   if(wk||isAbs||e.absolute===true)headingOk=true;
-  if(!got){sm.alpha=a;sm.beta=b;sm.gamma=g;got=true;}
-  else{
-    const k=.3,da=((a-sm.alpha+540)%360)-180;
-    sm.alpha=(sm.alpha+da*k+360)%360;sm.beta+=(b-sm.beta)*k;sm.gamma+=(g-sm.gamma)*k;
-  }
-  live=true;schedule();
+  const raw=basisFromEuler(a,b,g),now=performance.now();
+  if(!got){sb.f=raw.f.slice();sb.u=raw.u.slice();got=true;lastT=now;live=true;schedule();return;}
+  const dt=Math.min(0.1,Math.max(0.001,(now-lastT)/1000));lastT=now;
+  const dev=filterStep(sb,raw,dt,smooth);
+  live=true;
+  if(dev>=0.15)schedule();
 }
 
 async function goLive(){
@@ -539,6 +578,12 @@ $('gear').addEventListener('click',function(){
   const p=$('nudge');p.hidden=!p.hidden;$('gear').setAttribute('aria-expanded',String(!p.hidden));
 });
 $('offset').addEventListener('input',function(e){offset=+e.target.value;$('offsetOut').textContent=(offset>0?'+':'')+offset+'°';schedule();});
+const smoothEl=$('smooth'),zoneEl=$('zone');
+function showSmooth(){$('smoothOut').textContent=smooth===0?'Off':String(smooth);}
+function showZone(){$('zoneOut').textContent=zone===0?'Off':'±'+zone+'°';}
+smoothEl.value=smooth;zoneEl.value=zone;showSmooth();showZone();
+smoothEl.addEventListener('input',function(e){smooth=+e.target.value;showSmooth();saveState();});
+zoneEl.addEventListener('input',function(e){zone=+e.target.value;showZone();saveState();schedule();});
 
 let remoteDown=false;
 function norm(s){return s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();}
@@ -548,7 +593,8 @@ async function search(q){
   const out=[];
   const m=q.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
   if(m&&Math.abs(+m[1])<=90&&Math.abs(+m[2])<=180){
-    out.push({name:'Coordinates '+(+m[1])+', '+(+m[2]),detail:'Exact point',lat:+m[1],lon:+m[2]});
+    const la=+m[1],lo=+m[2];
+    out.push({name:Math.abs(la).toFixed(2)+'° '+(la>=0?'N':'S')+', '+Math.abs(lo).toFixed(2)+'° '+(lo>=0?'E':'W'),detail:'Exact point',lat:la,lon:lo});
   }
   const nq=norm(q);
   PLACES.filter(function(p){return norm(p.name).includes(nq);}).slice(0,5).forEach(function(p){
@@ -610,9 +656,16 @@ qEl.addEventListener('input',function(){
     items=res;renderSug(true);
   },300);
 });
-qEl.addEventListener('keydown',function(e){
-  if(e.key==='Enter'&&items.length){e.preventDefault();pick(items[0]);}
-  if(e.key==='Escape')closeSearch();
+qEl.addEventListener('keydown',async function(e){
+  if(e.key==='Escape'){closeSearch();return;}
+  if(e.key!=='Enter')return;
+  e.preventDefault();
+  if(qEl.value.trim().length<2)return;
+  clearTimeout(timer);
+  const my=++seq,res=await search(qEl.value);
+  if(my!==seq)return;
+  items=res;renderSug(true);
+  if(items.length)pick(items[0]);
 });
 $('sClose').addEventListener('click',closeSearch);
 sEl.addEventListener('click',function(e){if(e.target===sEl)closeSearch();});
