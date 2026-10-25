@@ -1,0 +1,571 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light}html{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}</style></head><body>
+<title>(Not) Flat Earth</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+/* Layout: one column. Viewfinder first, then live readouts, then the two place pickers. */
+:root{
+  --bg:#edf1f1; --surface:#f8fafa; --fg:#122124; --muted:#566a6d; --line:#cdd8d9;
+  --you:#0e7a68; --there:#c24d24; --path:#a8650a;
+  --display:'Bricolage Grotesque',system-ui,sans-serif;
+  --body:'IBM Plex Sans',system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1517; --surface:#162123; --fg:#e3eced; --muted:#8ea5a8; --line:#2a3c3f;
+    --you:#3cc3a6; --there:#f08b63; --path:#f0b24c; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1517; --surface:#162123; --fg:#e3eced; --muted:#8ea5a8; --line:#2a3c3f;
+  --you:#3cc3a6; --there:#f08b63; --path:#f0b24c; color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{
+  margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 var(--body);
+  padding-block:12px 28px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.wrap{max-width:560px; margin:0 auto; display:flex; flex-direction:column; gap:16px}
+h1{font:700 28px/1.1 var(--display); letter-spacing:-.01em; margin:0; text-wrap:balance}
+.sub{margin:6px 0 0; color:var(--muted); max-width:46ch}
+.stage{
+  position:relative; width:100%; aspect-ratio:3/4; max-height:72svh;
+  border-radius:14px; overflow:hidden; background:#20302f; border:1px solid var(--line);
+}
+.stage video,.stage canvas{position:absolute; inset:0; width:100%; height:100%}
+.stage video{object-fit:cover}
+.stage canvas{touch-action:none; cursor:grab}
+.status{margin:0; color:var(--muted); font-size:14px; min-height:42px}
+.actions{display:flex; flex-direction:column; gap:12px}
+.btn{
+  font:inherit; font-weight:500; min-height:44px; padding:0 16px; border-radius:10px;
+  border:1px solid var(--line); background:var(--surface); color:var(--fg); cursor:pointer;
+}
+.btn.primary{background:var(--fg); color:var(--bg); border-color:var(--fg)}
+.btn:focus-visible,input:focus-visible,.opt:focus-visible{outline:2px solid var(--path); outline-offset:2px}
+.nudge{display:flex; align-items:center; gap:10px; font-size:14px; color:var(--muted)}
+.nudge input{flex:1; min-width:0; accent-color:var(--path)}
+.nudge output{min-width:3.5ch; text-align:right; font-variant-numeric:tabular-nums; color:var(--fg)}
+.read{display:grid; grid-template-columns:1fr 1fr; margin:0; border-top:1px solid var(--line)}
+.read>div{padding:12px 0; border-bottom:1px solid var(--line); min-width:0}
+.read>div:nth-child(odd){padding-right:12px; border-right:1px solid var(--line)}
+.read>div:nth-child(even){padding-left:16px}
+dt{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em}
+dd{margin:2px 0 0; font:500 24px/1.2 var(--display); font-variant-numeric:tabular-nums}
+.places{display:flex; flex-direction:column; gap:16px}
+.place label{display:flex; align-items:center; gap:8px; font-weight:500; margin-bottom:6px}
+.dot{width:10px; height:10px; border-radius:50%; flex:none}
+.field{display:flex; gap:8px}
+.field input{
+  flex:1; min-width:0; min-height:44px; padding:0 12px; font:inherit; color:var(--fg);
+  background:var(--surface); border:1px solid var(--line); border-radius:10px;
+}
+.sug{list-style:none; margin:6px 0 0; padding:0; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--surface)}
+.sug li+li{border-top:1px solid var(--line)}
+.opt{display:block; width:100%; text-align:left; font:inherit; color:inherit; background:none; border:0; padding:10px 12px; min-height:44px; cursor:pointer}
+.opt:hover{background:var(--bg)}
+.opt small{display:block; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.hint{padding:10px 12px; font-size:13px; color:var(--muted)}
+.coords{margin:6px 0 0; font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums}
+.swap{align-self:flex-start}
+.units{display:flex; align-self:flex-start; border:1px solid var(--line); border-radius:10px; overflow:hidden}
+.units button{font:inherit; font-weight:500; min-height:40px; min-width:60px; padding:0 14px; background:var(--surface); color:var(--muted); border:0; cursor:pointer}
+.units button+button{border-left:1px solid var(--line)}
+.units button[aria-pressed="true"]{background:var(--fg); color:var(--bg)}
+.units button:focus-visible{outline:2px solid var(--path); outline-offset:-2px}
+@media (prefers-reduced-motion:no-preference){.btn{transition:background .15s}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>(Not) Flat Earth</h1>
+    <p class="sub">Point your phone at anywhere on Earth. The marker shows where it is, straight through the ground.</p>
+  </header>
+
+  <section class="stage" id="stage">
+    <video id="cam" playsinline muted hidden></video>
+    <canvas id="view" role="img" aria-label="Viewfinder showing the direction to the chosen place"></canvas>
+  </section>
+  <p class="status" id="status" role="status">Drag to look around, or switch on your camera and compass.</p>
+
+  <div class="actions">
+    <button class="btn primary" id="live" type="button">Use camera and compass</button>
+    <label class="nudge" id="nudge" hidden>
+      <span>Compass nudge</span>
+      <input id="offset" type="range" min="-30" max="30" step="1" value="0">
+      <output id="offsetOut" for="offset">0°</output>
+    </label>
+  </div>
+
+  <div class="units" id="units" role="group" aria-label="Distance unit">
+    <button type="button" data-u="km" aria-pressed="true">km</button>
+    <button type="button" data-u="nm" aria-pressed="false">nm</button>
+    <button type="button" data-u="mi" aria-pressed="false">miles</button>
+  </div>
+
+  <dl class="read">
+    <div><dt>Heading</dt><dd id="rAz">—</dd></div>
+    <div><dt>Tilt</dt><dd id="rEl">—</dd></div>
+    <div><dt>Straight through</dt><dd id="rChord">—</dd></div>
+    <div><dt>Over the surface</dt><dd id="rSurf">—</dd></div>
+  </dl>
+
+  <section class="places">
+    <div class="place">
+      <label for="fromQ"><span class="dot" style="background:var(--you)"></span>You are at</label>
+      <div class="field">
+        <input id="fromQ" type="text" autocomplete="off" enterkeyhint="search" placeholder="Search any place">
+        <button class="btn" id="gps" type="button">Use GPS</button>
+      </div>
+      <ul class="sug" id="fromSug" hidden></ul>
+      <p class="coords" id="fromCoords"></p>
+    </div>
+    <div class="place">
+      <label for="toQ"><span class="dot" style="background:var(--there)"></span>Pointing at</label>
+      <div class="field">
+        <input id="toQ" type="text" autocomplete="off" enterkeyhint="search" placeholder="Search any place">
+      </div>
+      <ul class="sug" id="toSug" hidden></ul>
+      <p class="coords" id="toCoords"></p>
+    </div>
+    <button class="btn swap" id="swap" type="button">Swap places</button>
+  </section>
+</div>
+
+<script>
+(function(){
+'use strict';
+//<math>
+const D2R=Math.PI/180, WA=6378137, WF=1/298.257223563, WE2=WF*(2-WF), RM=6371008.8;
+function dot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}
+function ecef(lat,lon){
+  const p=lat*D2R,l=lon*D2R,s=Math.sin(p),N=WA/Math.sqrt(1-WE2*s*s);
+  return [N*Math.cos(p)*Math.cos(l),N*Math.cos(p)*Math.sin(l),N*(1-WE2)*s];
+}
+function aim(from,to){
+  const a=ecef(from.lat,from.lon),b=ecef(to.lat,to.lon);
+  const dx=b[0]-a[0],dy=b[1]-a[1],dz=b[2]-a[2];
+  const p=from.lat*D2R,l=from.lon*D2R,sp=Math.sin(p),cp=Math.cos(p),sl=Math.sin(l),cl=Math.cos(l);
+  const e=-sl*dx+cl*dy, n=-sp*cl*dx-sp*sl*dy+cp*dz, u=cp*cl*dx+cp*sl*dy+sp*dz;
+  const d=Math.hypot(e,n,u), h=Math.hypot(e,n);
+  return {az:(Math.atan2(e,n)/D2R+360)%360, el:Math.atan2(u,h)/D2R, chordKm:d/1000, dir:d>1?[e/d,n/d,u/d]:null};
+}
+function surfaceKm(a,b){
+  const p1=a.lat*D2R,p2=b.lat*D2R,dp=p2-p1,dl=(b.lon-a.lon)*D2R;
+  const h=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+  return 2*RM*Math.asin(Math.min(1,Math.sqrt(h)))/1000;
+}
+function basisFromEuler(alpha,beta,gamma){
+  const cA=Math.cos(alpha*D2R),sA=Math.sin(alpha*D2R),cB=Math.cos(beta*D2R),sB=Math.sin(beta*D2R),cG=Math.cos(gamma*D2R),sG=Math.sin(gamma*D2R);
+  return {
+    f:[-cA*sG-sA*sB*cG, -sA*sG+cA*sB*cG, -cB*cG],
+    u:[-sA*cB, cA*cB, sB],
+    r:[cA*cG-sA*sB*sG, sA*cG+cA*sB*sG, -cB*sG]
+  };
+}
+function basisFromLook(az,pitch){
+  const a=az*D2R,p=pitch*D2R,sa=Math.sin(a),ca=Math.cos(a),sp=Math.sin(p),cp=Math.cos(p);
+  return {f:[sa*cp,ca*cp,sp], r:[ca,-sa,0], u:[-sa*sp,-ca*sp,cp]};
+}
+function project(b,d,F,cx,cy){
+  const zc=dot(d,b.f),xc=dot(d,b.r),yc=dot(d,b.u),ok=zc>1e-6;
+  return {zc:zc,xc:xc,yc:yc,x:ok?cx+F*xc/zc:NaN,y:ok?cy-F*yc/zc:NaN};
+}
+//</math>
+
+const PLACES=`Space Needle, Seattle|47.6205|-122.3493
+Seattle|47.6062|-122.3321
+New York|40.7128|-74.0060
+London|51.5074|-0.1278
+Sydney|-33.8688|151.2093
+Tokyo|35.6762|139.6503
+Paris|48.8566|2.3522
+Cairo|30.0444|31.2357
+Giza pyramids|29.9792|31.1342
+Luxor|25.6872|32.6396
+Alexandria|31.2001|29.9187
+Manchester|53.4808|-2.2426
+Birmingham|52.4862|-1.8904
+Leeds|53.8008|-1.5491
+Liverpool|53.4084|-2.9916
+Bristol|51.4545|-2.5879
+Edinburgh|55.9533|-3.1883
+Cardiff|51.4816|-3.1791
+Belfast|54.5973|-5.9301
+Dublin|53.3498|-6.2603
+Stonehenge|51.1789|-1.8262
+Big Ben|51.5007|-0.1246
+Ben Nevis|56.7969|-5.0036
+Reykjavik|64.1466|-21.9426
+Lisbon|38.7223|-9.1393
+Madrid|40.4168|-3.7038
+Barcelona|41.3874|2.1686
+Rome|41.9028|12.4964
+Berlin|52.5200|13.4050
+Amsterdam|52.3676|4.9041
+Istanbul|41.0082|28.9784
+Athens|37.9838|23.7275
+Moscow|55.7558|37.6173
+Eiffel Tower|48.8584|2.2945
+Marrakesh|31.6295|-7.9811
+Tel Aviv|32.0853|34.7818
+Dubai|25.2048|55.2708
+Tehran|35.6892|51.3890
+Mumbai|19.0760|72.8777
+Delhi|28.6139|77.2090
+Taj Mahal|27.1751|78.0421
+Kathmandu|27.7172|85.3240
+Mount Everest|27.9881|86.9250
+Bangkok|13.7563|100.5018
+Singapore|1.3521|103.8198
+Hong Kong|22.3193|114.1694
+Beijing|39.9042|116.4074
+Shanghai|31.2304|121.4737
+Seoul|37.5665|126.9780
+Perth|-31.9505|115.8605
+Melbourne|-37.8136|144.9631
+Sydney Opera House|-33.8568|151.2153
+Uluru|-25.3444|131.0369
+Auckland|-36.8485|174.7633
+Wellington|-41.2866|174.7756
+Honolulu|21.3069|-157.8583
+Anchorage|61.2181|-149.9003
+San Francisco|37.7749|-122.4194
+Golden Gate Bridge|37.8199|-122.4783
+Los Angeles|34.0522|-118.2437
+Vancouver|49.2827|-123.1207
+Denver|39.7392|-104.9903
+Chicago|41.8781|-87.6298
+Toronto|43.6532|-79.3832
+Boston|42.3601|-71.0589
+Washington DC|38.9072|-77.0369
+Statue of Liberty|40.6892|-74.0445
+Miami|25.7617|-80.1918
+Mexico City|19.4326|-99.1332
+Havana|23.1136|-82.3666
+Bogota|4.7110|-74.0721
+Lima|-12.0464|-77.0428
+Machu Picchu|-13.1631|-72.5450
+Santiago|-33.4489|-70.6693
+Buenos Aires|-34.6037|-58.3816
+Rio de Janeiro|-22.9068|-43.1729
+Sao Paulo|-23.5505|-46.6333
+Cape Town|-33.9249|18.4241
+Johannesburg|-26.2041|28.0473
+Nairobi|-1.2921|36.8219
+Lagos|6.5244|3.3792
+North Pole|90|0
+South Pole|-90|0`.split('\n').map(function(l){const p=l.split('|');return {name:p[0],lat:+p[1],lon:+p[2]};});
+
+const $=function(id){return document.getElementById(id);};
+const root=document.documentElement;
+const nf=new Intl.NumberFormat('en-GB',{maximumFractionDigits:0});
+const BODY='"IBM Plex Sans",system-ui,sans-serif';
+const cv=$('view'),ctx=cv.getContext('2d'),cam=$('cam'),stage=$('stage');
+const statusEl=$('status');
+
+function loadSaved(){try{return JSON.parse(localStorage.getItem('earthlens'))||{};}catch(e){return {};}}
+function saveState(){try{localStorage.setItem('earthlens',JSON.stringify({from:from,to:to,unit:unit}));}catch(e){}}
+function valid(p){return p&&typeof p.name==='string'&&isFinite(p.lat)&&isFinite(p.lon)&&Math.abs(p.lat)<=90&&Math.abs(p.lon)<=180;}
+const saved=loadSaved();
+let from=valid(saved.from)?saved.from:{name:'Space Needle, Seattle',lat:47.6205,lon:-122.3493};
+let to=valid(saved.to)?saved.to:{name:'New York',lat:40.7128,lon:-74.0060};
+
+const UF={km:1,nm:0.539956803,mi:0.621371192},UL={km:'km',nm:'nm',mi:'miles'};
+let unit=UF[saved.unit]?saved.unit:'km';
+function fmtDist(km){const v=km*UF[unit];return (v<100?v.toFixed(1):nf.format(v))+' '+UL[unit];}
+let A=null,S=0;
+let live=false,camOn=false,got=false,absSeen=false,headingOk=false;
+let offset=0,yaw=0,pitch=0,dpr=1,raf=0;
+const sm={alpha:0,beta:90,gamma:0};
+
+function setStatus(t){statusEl.textContent=t;}
+function compass(az){return ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'][Math.round(az/22.5)%16];}
+function fmtCoord(p){return Math.abs(p.lat).toFixed(4)+'° '+(p.lat>=0?'N':'S')+', '+Math.abs(p.lon).toFixed(4)+'° '+(p.lon>=0?'E':'W');}
+function shortName(n){return n.length>26?n.slice(0,25)+'…':n;}
+
+function schedule(){if(!raf)raf=requestAnimationFrame(function(){raf=0;draw();});}
+
+function recompute(){
+  A=aim(from,to);S=surfaceKm(from,to);
+  if(A.dir){
+    $('rAz').textContent=Math.round(A.az)+'° '+compass(A.az);
+    $('rEl').textContent=Math.abs(A.el).toFixed(1)+'° '+(A.el<=0?'down':'up');
+    $('rChord').textContent=fmtDist(A.chordKm);
+    $('rSurf').textContent=fmtDist(S);
+  }else{
+    $('rAz').textContent='—';$('rEl').textContent='—';$('rChord').textContent=fmtDist(0);$('rSurf').textContent=fmtDist(0);
+  }
+  $('fromCoords').textContent=fmtCoord(from);
+  $('toCoords').textContent=fmtCoord(to);
+  if(!live&&A.dir){yaw=A.az-12;pitch=Math.max(A.el+12,-85);}
+  saveState();schedule();
+}
+
+function cssVar(n){return getComputedStyle(root).getPropertyValue(n).trim();}
+
+function draw(){
+  const W=cv.clientWidth,H=cv.clientHeight;
+  if(!W||!H||!A)return;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  const b=live?basisFromEuler(sm.alpha-offset,sm.beta,sm.gamma):basisFromLook(yaw,pitch);
+  const F=(H/2)/Math.tan(30*D2R),cx=W/2,cy=H/2,L=3000;
+  const ga=b.r[2],gb=-b.u[2],gc=b.f[2]*F,nn=Math.hypot(ga,gb);
+  const youC=cssVar('--you'),thereC=cssVar('--there');
+
+  if(!camOn){
+    ctx.fillStyle='#bcd6e8';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#587a52';
+    if(nn<1e-4){if(b.f[2]<0)ctx.fillRect(0,0,W,H);}
+    else{
+      const nx=ga/nn,ny=gb/nn,px=cx-nx*gc/nn,py=cy-ny*gc/nn,tx=-ny,ty=nx;
+      ctx.beginPath();
+      ctx.moveTo(px-tx*L,py-ty*L);ctx.lineTo(px+tx*L,py+ty*L);
+      ctx.lineTo(px+tx*L-nx*L,py+ty*L-ny*L);ctx.lineTo(px-tx*L-nx*L,py-ty*L-ny*L);
+      ctx.closePath();ctx.fill();
+    }
+  }
+
+  if(nn>=1e-4){
+    const nx=ga/nn,ny=gb/nn,px=cx-nx*gc/nn,py=cy-ny*gc/nn,tx=-ny,ty=nx;
+    ctx.save();
+    ctx.setLineDash([8,6]);ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(px-tx*L,py-ty*L);ctx.lineTo(px+tx*L,py+ty*L);ctx.stroke();
+    ctx.restore();
+    ctx.font='500 12px '+BODY;ctx.textAlign='center';ctx.textBaseline='middle';
+    for(let az=0;az<360;az+=15){
+      const q=project(b,[Math.sin(az*D2R),Math.cos(az*D2R),0],F,cx,cy);
+      if(q.zc<0.05||q.x<-20||q.x>W+20||q.y<-20||q.y>H+20)continue;
+      const major=az%90===0,len=major?12:7;
+      ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(q.x,q.y);ctx.lineTo(q.x+nx*len,q.y+ny*len);ctx.stroke();
+      if(az%45===0){
+        const lab=compass(az),lx=q.x-nx*16,ly=q.y-ny*16;
+        ctx.lineWidth=3;ctx.strokeStyle='rgba(0,0,0,.5)';ctx.strokeText(lab,lx,ly);
+        ctx.fillStyle='#fff';ctx.fillText(lab,lx,ly);
+      }
+    }
+  }
+
+  ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(cx-9,cy);ctx.lineTo(cx+9,cy);ctx.moveTo(cx,cy-9);ctx.lineTo(cx,cy+9);ctx.stroke();
+
+  function pill(text,x,y){
+    ctx.font='500 13px '+BODY;ctx.textAlign='left';ctx.textBaseline='middle';
+    const w=ctx.measureText(text).width+20,h=26;
+    const x0=Math.max(8,Math.min(W-w-8,x-w/2)),y0=Math.max(8,Math.min(H-h-8,y-h/2));
+    ctx.fillStyle='rgba(8,16,18,.68)';ctx.beginPath();
+    if(ctx.roundRect)ctx.roundRect(x0,y0,w,h,13);else ctx.rect(x0,y0,w,h);
+    ctx.fill();ctx.fillStyle='#fff';ctx.fillText(text,x0+10,y0+h/2+.5);
+  }
+
+  if(!A.dir){pill('You are standing on it',cx,cy+60);return;}
+  const q=project(b,A.dir,F,cx,cy),m=26;
+  const on=q.zc>0.02&&q.x>m&&q.x<W-m&&q.y>m&&q.y<H-m;
+  const label=shortName(to.name)+' · '+fmtDist(A.chordKm);
+  if(on){
+    ctx.lineWidth=6;ctx.strokeStyle='rgba(255,255,255,.9)';
+    ctx.beginPath();ctx.arc(q.x,q.y,22,0,6.2832);ctx.stroke();
+    ctx.lineWidth=3;ctx.strokeStyle=thereC;
+    ctx.beginPath();ctx.arc(q.x,q.y,22,0,6.2832);ctx.stroke();
+    ctx.fillStyle=thereC;ctx.beginPath();ctx.arc(q.x,q.y,5,0,6.2832);ctx.fill();
+    pill(label,q.x,q.y+42);
+  }else{
+    let vx=q.xc,vy=-q.yc;const len=Math.hypot(vx,vy);
+    if(len<1e-6){vx=0;vy=1;}else{vx/=len;vy/=len;}
+    const m2=40,tx2=vx!==0?(W/2-m2)/Math.abs(vx):Infinity,ty2=vy!==0?(H/2-m2)/Math.abs(vy):Infinity,tt=Math.min(tx2,ty2);
+    const ex=cx+vx*tt,ey=cy+vy*tt;
+    ctx.save();ctx.translate(ex,ey);ctx.rotate(Math.atan2(vy,vx));
+    ctx.beginPath();ctx.moveTo(16,0);ctx.lineTo(-9,10);ctx.lineTo(-9,-10);ctx.closePath();
+    ctx.fillStyle=thereC;ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='rgba(255,255,255,.9)';ctx.stroke();
+    ctx.restore();
+    pill(label,ex-vx*60,ey-vy*34);
+  }
+
+  const camAz=Math.atan2(b.f[0],b.f[1])/D2R,camEl=Math.asin(Math.max(-1,Math.min(1,b.f[2])))/D2R;
+  const dAz=((A.az-camAz+540)%360)-180,dEl=A.el-camEl,hint=[];
+  if(Math.abs(dAz)>3)hint.push('turn '+(dAz>0?'right ':'left ')+Math.round(Math.abs(dAz))+'°');
+  if(Math.abs(dEl)>3)hint.push('tilt '+(dEl<0?'down ':'up ')+Math.round(Math.abs(dEl))+'°');
+  pill(hint.length?hint.join(' · '):'On target',cx,24);
+}
+
+(function(){
+  let drag=null;
+  cv.addEventListener('pointerdown',function(e){if(live)return;drag={x:e.clientX,y:e.clientY};try{cv.setPointerCapture(e.pointerId);}catch(x){}});
+  cv.addEventListener('pointermove',function(e){
+    if(!drag)return;
+    const k=60/cv.clientHeight;
+    yaw=((yaw-(e.clientX-drag.x)*k)%360+360)%360;
+    pitch=Math.max(-89,Math.min(89,pitch+(e.clientY-drag.y)*k));
+    drag={x:e.clientX,y:e.clientY};schedule();
+  });
+  ['pointerup','pointercancel'].forEach(function(n){cv.addEventListener(n,function(){drag=null;});});
+})();
+
+new ResizeObserver(function(){
+  dpr=Math.min(window.devicePixelRatio||1,3);
+  cv.width=Math.round(cv.clientWidth*dpr);cv.height=Math.round(cv.clientHeight*dpr);schedule();
+}).observe(stage);
+
+function onOri(e){
+  if(e.type==='deviceorientationabsolute'){absSeen=true;headingOk=true;}
+  else if(absSeen)return;
+  let a=e.alpha;const b=e.beta,g=e.gamma;
+  if(typeof e.webkitCompassHeading==='number'){a=360-e.webkitCompassHeading;headingOk=true;}
+  else if(e.absolute===true)headingOk=true;
+  if(a==null||b==null||g==null)return;
+  if(!got){sm.alpha=a;sm.beta=b;sm.gamma=g;got=true;}
+  else{
+    const k=.3,da=((a-sm.alpha+540)%360)-180;
+    sm.alpha=(sm.alpha+da*k+360)%360;sm.beta+=(b-sm.beta)*k;sm.gamma+=(g-sm.gamma)*k;
+  }
+  live=true;schedule();
+}
+
+async function goLive(){
+  setStatus('Asking for camera and motion…');
+  const DOE=window.DeviceOrientationEvent;
+  let motionDenied=false;
+  try{
+    if(DOE&&typeof DOE.requestPermission==='function'){
+      const r=await DOE.requestPermission();
+      if(r!=='granted')motionDenied=true;
+    }
+  }catch(err){motionDenied=true;}
+  if(!motionDenied){
+    window.addEventListener('deviceorientationabsolute',onOri);
+    window.addEventListener('deviceorientation',onOri);
+  }
+  try{
+    const md=navigator.mediaDevices;
+    if(!md||!md.getUserMedia)throw new Error('no camera');
+    const s=await md.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+    cam.srcObject=s;await cam.play();cam.hidden=false;camOn=true;
+  }catch(err){camOn=false;}
+  await new Promise(function(r){setTimeout(r,1200);});
+  if(live&&camOn){
+    setStatus(headingOk?'Live. Follow the hint at the top of the view.':'Live, but this phone gives no compass heading. Use the nudge to line the marker up.');
+    $('live').hidden=true;$('nudge').hidden=false;
+  }else if(live){
+    setStatus('Motion works, but the camera is blocked here, so you get the demo sky behind the marker.');
+    $('nudge').hidden=false;
+  }else if(camOn){
+    setStatus('The camera is on, but no motion data arrived. Drag to look around.');
+  }else{
+    setStatus('This view blocks the camera and compass, so you are still on the demo scene. Open the page from its own https address on your phone to use them.');
+  }
+  schedule();
+}
+$('live').addEventListener('click',goLive);
+$('offset').addEventListener('input',function(e){offset=+e.target.value;$('offsetOut').textContent=(offset>0?'+':'')+offset+'°';schedule();});
+
+let remoteDown=false;
+function norm(s){return s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();}
+async function search(q){
+  q=q.trim();
+  if(q.length<2)return [];
+  const out=[];
+  const m=q.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+  if(m&&Math.abs(+m[1])<=90&&Math.abs(+m[2])<=180){
+    out.push({name:'Coordinates '+(+m[1])+', '+(+m[2]),detail:'Exact point',lat:+m[1],lon:+m[2]});
+  }
+  const nq=norm(q);
+  PLACES.filter(function(p){return norm(p.name).includes(nq);}).slice(0,5).forEach(function(p){
+    out.push({name:p.name,detail:'Built-in place',lat:p.lat,lon:p.lon});
+  });
+  try{
+    const ctrl=new AbortController(),t=setTimeout(function(){ctrl.abort();},4000);
+    const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q='+encodeURIComponent(q),{signal:ctrl.signal});
+    clearTimeout(t);
+    if(!r.ok)throw new Error('bad status');
+    const j=await r.json();remoteDown=false;
+    j.forEach(function(x){
+      const parts=String(x.display_name).split(', ');
+      const name=parts.length>1?parts[0]+', '+parts[parts.length-1]:parts[0];
+      if(out.some(function(o){return Math.abs(o.lat-(+x.lat))<0.05&&Math.abs(o.lon-(+x.lon))<0.05;}))return;
+      out.push({name:name,detail:x.display_name,lat:+x.lat,lon:+x.lon});
+    });
+  }catch(err){remoteDown=true;}
+  return out;
+}
+
+function wirePicker(key){
+  const q=$(key+'Q'),list=$(key+'Sug');
+  let seq=0,timer=0,items=[];
+  function pick(it){
+    const p={name:it.name,lat:it.lat,lon:it.lon};
+    if(key==='from')from=p;else to=p;
+    q.value=p.name;list.hidden=true;items=[];recompute();
+  }
+  function render(typed){
+    list.textContent='';
+    items.forEach(function(it){
+      const li=document.createElement('li'),bt=document.createElement('button');
+      bt.type='button';bt.className='opt';bt.textContent=it.name;
+      const sm2=document.createElement('small');sm2.textContent=it.detail;bt.appendChild(sm2);
+      bt.addEventListener('click',function(){pick(it);});
+      li.appendChild(bt);list.appendChild(li);
+    });
+    if(remoteDown||!items.length){
+      const li=document.createElement('li');li.className='hint';
+      li.textContent=items.length?'Online place search is not available here, so these are built-in places.':
+        (remoteDown?'No built-in match. Try a big city nearby, or type coordinates like 51.5, -0.12.':'No match. Try a different spelling.');
+      list.appendChild(li);
+    }
+    list.hidden=false;
+  }
+  q.addEventListener('input',function(){
+    clearTimeout(timer);
+    if(q.value.trim().length<2){list.hidden=true;return;}
+    timer=setTimeout(async function(){
+      const my=++seq,res=await search(q.value);
+      if(my!==seq)return;
+      items=res;render();
+    },300);
+  });
+  q.addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&items.length){e.preventDefault();pick(items[0]);}
+    if(e.key==='Escape')list.hidden=true;
+  });
+  q.addEventListener('focus',function(){q.select();});
+  q.addEventListener('blur',function(){setTimeout(function(){list.hidden=true;},150);});
+  list.addEventListener('mousedown',function(e){e.preventDefault();});
+  q.value=(key==='from'?from:to).name;
+}
+wirePicker('from');wirePicker('to');
+
+$('swap').addEventListener('click',function(){
+  const t=from;from=to;to=t;$('fromQ').value=from.name;$('toQ').value=to.name;recompute();
+});
+
+$('gps').addEventListener('click',function(){
+  if(!navigator.geolocation){setStatus('This browser has no location access. Search for where you are instead.');return;}
+  setStatus('Finding you…');
+  try{
+    navigator.geolocation.getCurrentPosition(function(pos){
+      from={name:'My location',lat:pos.coords.latitude,lon:pos.coords.longitude};
+      $('fromQ').value=from.name;recompute();
+      setStatus('Got your location.');
+    },function(){
+      setStatus('Location is blocked here. Search for where you are instead.');
+    },{enableHighAccuracy:true,timeout:10000,maximumAge:30000});
+  }catch(err){setStatus('Location is blocked here. Search for where you are instead.');}
+});
+
+function setUnit(u){
+  unit=u;
+  document.querySelectorAll('#units button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.u===u));});
+  recompute();
+}
+document.querySelectorAll('#units button').forEach(function(b){b.addEventListener('click',function(){setUnit(b.dataset.u);});});
+setUnit(unit);
+})();
+</script>
+
+</body></html>
