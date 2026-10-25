@@ -47,13 +47,15 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--path); outline-
 .start{min-height:48px; padding:0 22px; border-radius:24px; border:0; background:var(--fg); color:var(--ink); font-weight:600; font-size:15px}
 .gear{position:absolute; right:var(--gr); top:2px; width:44px; height:44px; border-radius:50%; display:grid; place-items:center;
   background:var(--glass); border:1px solid var(--line); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px)}
-.nudge{position:absolute; right:var(--gr); bottom:calc(var(--sheet-h,190px) + 70px); z-index:4; width:min(290px,calc(100% - 32px)); padding:12px 14px;
+.nudge{max-height:calc(100% - var(--sheet-h,190px) - 70px - 132px); overflow-y:auto; position:absolute; right:var(--gr); bottom:calc(var(--sheet-h,190px) + 70px); z-index:4; width:min(290px,calc(100% - 32px)); padding:12px 14px;
   border-radius:16px; background:var(--glass-solid); border:1px solid var(--line)}
 .nudge label{display:flex; justify-content:space-between; font-size:13px; color:var(--muted)}
 .nudge output{color:var(--fg); font-variant-numeric:tabular-nums}
 .nudge input{width:100%; margin:10px 0 0; accent-color:var(--path)}
 .nudge input+label{margin-top:14px}
 .nudge p{margin:8px 0 0; font-size:12px; color:var(--muted)}
+.nudge .sw{display:block; width:100%; margin-top:14px; min-height:40px; border-radius:12px; border:1px solid var(--line); background:var(--fill); color:var(--fg); font:inherit; font-size:13px; cursor:pointer}
+.nudge .sw[aria-pressed="true"]{background:var(--fg); color:var(--ink); border-color:transparent}
 
 .sheet{position:absolute; left:0; right:0; bottom:0; z-index:3; padding:14px var(--gr) 14px var(--gl); background:var(--glass); border-top:1px solid var(--line);
   border-radius:24px 24px 0 0; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px)}
@@ -125,7 +127,8 @@ dd{margin:2px 0 0; font:500 clamp(15px,4.5vw,18px)/1.25 var(--display); font-var
     <input id="smooth" type="range" min="0" max="10" step="1" value="6">
     <label for="zone"><span>Lock-on zone</span><output id="zoneOut" for="zone">±3°</output></label>
     <input id="zone" type="range" min="0" max="8" step="1" value="3">
-    <p>Nudge lines the marker up with a place you know. More smoothing steadies a jumpy compass but lags a little. Inside the lock-on zone the marker holds still.</p>
+    <button class="sw" id="skyBtn" type="button" aria-pressed="true">Sun and Moon: on</button>
+    <p>Nudge lines the marker up with a place you know. More smoothing steadies a jumpy compass. The marker holds still inside the lock-on zone. Sun and Moon show even when they are below your horizon.</p>
   </div>
 
   <section class="sheet" id="sheet" aria-label="Readouts">
@@ -226,6 +229,30 @@ function lockUpdate(locked,errDeg,zoneDeg){
   if(zoneDeg<=0)return false;
   return locked?errDeg<=zoneDeg*1.5:errDeg<zoneDeg;
 }
+function skyBodies(ms,lat,lon){
+  const n=ms/86400000+2440587.5-2451545.0,th=(280.46061837+360.98564736629*n)*D2R;
+  const eps=(23.439-0.0000004*n)*D2R,ce=Math.cos(eps),se=Math.sin(eps);
+  function toEcef(v){return [v[0]*Math.cos(th)+v[1]*Math.sin(th),-v[0]*Math.sin(th)+v[1]*Math.cos(th),v[2]];}
+  const g=(357.528+0.9856003*n)*D2R,ls=(280.460+0.9856474*n+1.915*Math.sin(g)+0.020*Math.sin(2*g))*D2R;
+  const sunG=toEcef([Math.cos(ls),ce*Math.sin(ls),se*Math.sin(ls)]);
+  const Lm=(218.316+13.176396*n)*D2R,Mm=(134.963+13.064993*n)*D2R,Fm=(93.272+13.229350*n)*D2R;
+  const Dm=(297.850+12.190749*n)*D2R,Ms=(357.529+0.98560028*n)*D2R;
+  const lm=Lm+D2R*(6.289*Math.sin(Mm)+1.274*Math.sin(2*Dm-Mm)+0.658*Math.sin(2*Dm)+0.214*Math.sin(2*Mm)-0.186*Math.sin(Ms)-0.114*Math.sin(2*Fm));
+  const bm=D2R*(5.128*Math.sin(Fm)+0.281*Math.sin(Mm+Fm)+0.278*Math.sin(Mm-Fm)+0.173*Math.sin(2*Dm-Fm));
+  const dm=(385001-20905*Math.cos(Mm)-3699*Math.cos(2*Dm-Mm)-2956*Math.cos(2*Dm)-570*Math.cos(2*Mm))*1000;
+  const cb=Math.cos(bm);
+  const moonG=toEcef([cb*Math.cos(lm),ce*cb*Math.sin(lm)-se*Math.sin(bm),se*cb*Math.sin(lm)+ce*Math.sin(bm)]);
+  const o=ecef(lat,lon),p=lat*D2R,l=lon*D2R,sp=Math.sin(p),cp=Math.cos(p),sl=Math.sin(l),cl=Math.cos(l);
+  function look(gv,dist){
+    const dx=gv[0]*dist-o[0],dy=gv[1]*dist-o[1],dz=gv[2]*dist-o[2];
+    const e=-sl*dx+cl*dy,nn=-sp*cl*dx-sp*sl*dy+cp*dz,u=cp*cl*dx+cp*sl*dy+sp*dz,d=Math.hypot(e,nn,u);
+    return {az:(Math.atan2(e,nn)/D2R+360)%360,el:Math.asin(u/d)/D2R,dir:[e/d,nn/d,u/d]};
+  }
+  const sun=look(sunG,1.496e11),moon=look(moonG,dm);
+  moon.cosElong=dot(sun.dir,moon.dir);
+  moon.illum=(1-moon.cosElong)/2;
+  return {sun:sun,moon:moon};
+}
 //</math>
 
 const PLACES=`Space Needle, Seattle|47.6205|-122.3493
@@ -323,7 +350,7 @@ const VFOV=66;
 const app=$('app'),cv=$('view'),ctx=cv.getContext('2d'),cam=$('cam'),topEl=$('top'),sheet=$('sheet'),dockEl=$('dock');
 
 function loadSaved(){try{return JSON.parse(localStorage.getItem('earthlens'))||{};}catch(e){return {};}}
-function saveState(){try{localStorage.setItem('earthlens',JSON.stringify({from:from,to:to,unit:unit,smooth:smooth,zone:zone}));}catch(e){}}
+function saveState(){try{localStorage.setItem('earthlens',JSON.stringify({from:from,to:to,unit:unit,smooth:smooth,zone:zone,sky:showSky}));}catch(e){}}
 function valid(p){return p&&typeof p.name==='string'&&isFinite(p.lat)&&isFinite(p.lon)&&Math.abs(p.lat)<=90&&Math.abs(p.lon)<=180;}
 const saved=loadSaved();
 let from=valid(saved.from)?saved.from:{name:'Space Needle, Seattle',lat:47.6205,lon:-122.3493};
@@ -339,6 +366,7 @@ let offset=0,yaw=0,pitch=0,dpr=1,raf=0,toastTimer=0,lastT=0,locked=false;
 let smooth=Number.isFinite(saved.smooth)?Math.max(0,Math.min(10,Math.round(saved.smooth))):6;
 let zone=Number.isFinite(saved.zone)?Math.max(0,Math.min(8,Math.round(saved.zone))):3;
 const sb={f:[0,1,0],u:[0,0,1]};
+let showSky=saved.sky!==false;
 
 function setStatus(t){
   const el=$('toast');el.textContent=t;el.hidden=false;
@@ -467,6 +495,47 @@ function drawGlobe(ix,iy,youC,thereC){
   ctx.fillStyle=thereC;ctx.beginPath();ctx.arc(bx,ay,3.8,0,6.2832);ctx.fill();ctx.stroke();
 }
 
+function drawSky(body,kind,b,F,cx,cy,W,vt,vb,sun){
+  const q=project(b,body.dir,F,cx,cy),m=22,below=body.el<0;
+  const on=q.zc>0.02&&q.x>m&&q.x<W-m&&q.y>vt+m&&q.y<vb-m;
+  let x=q.x,y=q.y,r=kind==='sun'?10:11;
+  if(!on){
+    let vx=q.xc,vy=-q.yc;const len=Math.hypot(vx,vy);
+    if(len<1e-6){vx=0;vy=1;}else{vx/=len;vy/=len;}
+    const m2=24,hw=W/2-m2,hh=(vb-vt)/2-m2;
+    const tx=vx!==0?hw/Math.abs(vx):Infinity,ty=vy!==0?hh/Math.abs(vy):Infinity,tt=Math.min(tx,ty);
+    x=W/2+vx*tt;y=(vt+vb)/2+vy*tt;r*=.75;
+  }
+  ctx.save();
+  ctx.globalAlpha=(below?.5:1)*(on?1:.85);
+  if(kind==='sun'){
+    const gr=ctx.createRadialGradient(x,y,0,x,y,r*2.8);
+    gr.addColorStop(0,'rgba(255,246,206,.6)');gr.addColorStop(1,'rgba(255,246,206,0)');
+    ctx.fillStyle=gr;ctx.beginPath();ctx.arc(x,y,r*2.8,0,6.2832);ctx.fill();
+    ctx.strokeStyle='rgba(255,246,206,.95)';ctx.lineWidth=1.6;ctx.lineCap='round';
+    for(let i=0;i<8;i++){const a=i*Math.PI/4;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*r*1.4,y+Math.sin(a)*r*1.4);ctx.lineTo(x+Math.cos(a)*r*1.9,y+Math.sin(a)*r*1.9);ctx.stroke();}
+    ctx.fillStyle='#fff6ce';ctx.beginPath();ctx.arc(x,y,r,0,6.2832);ctx.fill();
+  }else{
+    const vx=dot(sun.dir,b.r)-body.cosElong*dot(body.dir,b.r),vy=-(dot(sun.dir,b.u)-body.cosElong*dot(body.dir,b.u));
+    const ang=Math.hypot(vx,vy)>1e-4?Math.atan2(vy,vx):0,a=r*Math.abs(body.cosElong),cres=body.cosElong>0;
+    ctx.translate(x,y);ctx.rotate(ang);
+    ctx.fillStyle='rgba(22,52,96,.6)';ctx.beginPath();ctx.arc(0,0,r,0,6.2832);ctx.fill();
+    ctx.fillStyle='#eaf3ff';ctx.beginPath();
+    ctx.arc(0,0,r,-Math.PI/2,Math.PI/2,false);
+    ctx.ellipse(0,0,Math.max(a,.01),r,0,Math.PI/2,-Math.PI/2,cres);
+    ctx.fill();
+    ctx.strokeStyle='rgba(220,236,255,.8)';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(0,0,r,0,6.2832);ctx.stroke();
+    ctx.rotate(-ang);ctx.translate(-x,-y);
+  }
+  if(on){
+    const t=(kind==='sun'?'Sun':'Moon')+' · '+Math.round(Math.abs(body.el))+'° '+(below?'below horizon':'up');
+    ctx.font='500 11px '+BODY;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.lineWidth=3;ctx.strokeStyle='rgba(4,12,26,.7)';ctx.strokeText(t,x,y+r*(kind==='sun'?2.4:1.7)+8);
+    ctx.fillStyle='#fff';ctx.fillText(t,x,y+r*(kind==='sun'?2.4:1.7)+8);
+  }
+  ctx.restore();
+}
+
 function draw(){
   const W=cv.clientWidth,H=cv.clientHeight;
   if(!W||!H||!A)return;
@@ -525,6 +594,12 @@ function draw(){
     ctx.fillStyle=accent?'rgba(18,72,132,.9)':'rgba(6,16,32,.72)';ctx.beginPath();
     if(ctx.roundRect)ctx.roundRect(x0,y0,w,h,13);else ctx.rect(x0,y0,w,h);
     ctx.fill();ctx.fillStyle=accent?'#d6ebff':'#fff';ctx.fillText(text,x0+10,y0+h/2+.5);
+  }
+
+  if(showSky){
+    const sk=skyBodies(Date.now(),from.lat,from.lon);
+    drawSky(sk.sun,'sun',b,F,cx,cy,W,vt,vb);
+    drawSky(sk.moon,'moon',b,F,cx,cy,W,vt,vb,sk.sun);
   }
 
   if(!A.dir){pill('You are standing on it',cx,(vt+vb)/2);return;}
@@ -649,6 +724,11 @@ function showZone(){$('zoneOut').textContent=zone===0?'Off':'±'+zone+'°';}
 smoothEl.value=smooth;zoneEl.value=zone;showSmooth();showZone();
 smoothEl.addEventListener('input',function(e){smooth=+e.target.value;showSmooth();saveState();});
 zoneEl.addEventListener('input',function(e){zone=+e.target.value;showZone();saveState();schedule();});
+
+function showSkyBtn(){const bt=$('skyBtn');bt.setAttribute('aria-pressed',String(showSky));bt.textContent='Sun and Moon: '+(showSky?'on':'off');}
+$('skyBtn').addEventListener('click',function(){showSky=!showSky;showSkyBtn();saveState();schedule();});
+showSkyBtn();
+setInterval(schedule,20000);
 
 let remoteDown=false;
 function norm(s){return s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();}
