@@ -3,138 +3,157 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-/* Layout: one column. Viewfinder first, then live readouts, then the two place pickers. */
+/* Layout: one screen, never scrolls. Full-bleed camera view, place chips float at the top, one glass readout panel at the bottom. */
 :root{
-  --bg:#edf1f1; --surface:#f8fafa; --fg:#122124; --muted:#566a6d; --line:#cdd8d9;
-  --you:#0e7a68; --there:#c24d24; --path:#a8650a;
-  --display:'Bricolage Grotesque',system-ui,sans-serif;
-  --body:'IBM Plex Sans',system-ui,sans-serif;
-}
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --bg:#0d1517; --surface:#162123; --fg:#e3eced; --muted:#8ea5a8; --line:#2a3c3f;
-    --you:#3cc3a6; --there:#f08b63; --path:#f0b24c; color-scheme:dark;
-  }
-}
-:root[data-theme="dark"]{
-  --bg:#0d1517; --surface:#162123; --fg:#e3eced; --muted:#8ea5a8; --line:#2a3c3f;
-  --you:#3cc3a6; --there:#f08b63; --path:#f0b24c; color-scheme:dark;
+  color-scheme:dark;
+  --bg:#0b1214; --glass:rgba(10,18,20,.8); --glass-solid:#101a1d; --fill:rgba(255,255,255,.09);
+  --line:rgba(255,255,255,.15); --fg:#f1f6f6; --muted:#9db2b5; --ink:#0b1214;
+  --you:#3cc3a6; --there:#f08b63; --path:#f0b24c;
+  --display:'Bricolage Grotesque',system-ui,sans-serif; --body:'IBM Plex Sans',system-ui,sans-serif;
+  --gl:max(16px,env(safe-area-inset-left,0px)); --gr:max(16px,env(safe-area-inset-right,0px));
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-body{
-  margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 var(--body);
-  padding-block:12px 28px;
-  padding-left:max(16px,env(safe-area-inset-left,0px));
-  padding-right:max(16px,env(safe-area-inset-right,0px));
-}
-.wrap{max-width:560px; margin:0 auto; display:flex; flex-direction:column; gap:16px}
-h1{font:700 28px/1.1 var(--display); letter-spacing:-.01em; margin:0; text-wrap:balance}
-.sub{margin:6px 0 0; color:var(--muted); max-width:46ch}
-.stage{
-  position:relative; width:100%; aspect-ratio:3/4; max-height:72svh;
-  border-radius:14px; overflow:hidden; background:#20302f; border:1px solid var(--line);
-}
-.stage video,.stage canvas{position:absolute; inset:0; width:100%; height:100%}
-.stage video{object-fit:cover}
-.stage canvas{touch-action:none; cursor:grab}
-.status{margin:0; color:var(--muted); font-size:14px; min-height:42px}
-.actions{display:flex; flex-direction:column; gap:12px}
-.btn{
-  font:inherit; font-weight:500; min-height:44px; padding:0 16px; border-radius:10px;
-  border:1px solid var(--line); background:var(--surface); color:var(--fg); cursor:pointer;
-}
-.btn.primary{background:var(--fg); color:var(--bg); border-color:var(--fg)}
-.btn:focus-visible,input:focus-visible,.opt:focus-visible{outline:2px solid var(--path); outline-offset:2px}
-.nudge{display:flex; align-items:center; gap:10px; font-size:14px; color:var(--muted)}
-.nudge input{flex:1; min-width:0; accent-color:var(--path)}
-.nudge output{min-width:3.5ch; text-align:right; font-variant-numeric:tabular-nums; color:var(--fg)}
-.read{display:grid; grid-template-columns:1fr 1fr; margin:0; border-top:1px solid var(--line)}
-.read>div{padding:12px 0; border-bottom:1px solid var(--line); min-width:0}
-.read>div:nth-child(odd){padding-right:12px; border-right:1px solid var(--line)}
-.read>div:nth-child(even){padding-left:16px}
-dt{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em}
-dd{margin:2px 0 0; font:500 24px/1.2 var(--display); font-variant-numeric:tabular-nums}
-.places{display:flex; flex-direction:column; gap:16px}
-.place label{display:flex; align-items:center; gap:8px; font-weight:500; margin-bottom:6px}
-.dot{width:10px; height:10px; border-radius:50%; flex:none}
-.field{display:flex; gap:8px}
-.field input{
-  flex:1; min-width:0; min-height:44px; padding:0 12px; font:inherit; color:var(--fg);
-  background:var(--surface); border:1px solid var(--line); border-radius:10px;
-}
-.sug{list-style:none; margin:6px 0 0; padding:0; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--surface)}
-.sug li+li{border-top:1px solid var(--line)}
-.opt{display:block; width:100%; text-align:left; font:inherit; color:inherit; background:none; border:0; padding:10px 12px; min-height:44px; cursor:pointer}
-.opt:hover{background:var(--bg)}
-.opt small{display:block; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.hint{padding:10px 12px; font-size:13px; color:var(--muted)}
-.coords{margin:6px 0 0; font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums}
-.swap{align-self:flex-start}
-.units{display:flex; align-self:flex-start; border:1px solid var(--line); border-radius:10px; overflow:hidden}
-.units button{font:inherit; font-weight:500; min-height:40px; min-width:60px; padding:0 14px; background:var(--surface); color:var(--muted); border:0; cursor:pointer}
+html,body{height:100%}
+@supports (height:100dvh){html,body{height:100dvh}}
+html{overflow:hidden}
+body{margin:0; overflow:hidden; background:var(--bg); color:var(--fg); font:15px/1.4 var(--body); -webkit-text-size-adjust:100%}
+button,input{font:inherit; color:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--path); outline-offset:2px}
+.app{position:relative; width:100%; height:100%; overflow:hidden; background:#1b2a2c}
+#cam,#view{position:absolute; inset:0; width:100%; height:100%}
+#cam{object-fit:cover}
+#view{touch-action:none; cursor:grab}
+
+.top{position:absolute; left:0; right:0; top:0; z-index:3; padding:10px var(--gr) 0 var(--gl)}
+.row{display:flex; align-items:center; gap:8px}
+.chip{flex:1; min-width:0; display:flex; align-items:center; gap:8px; min-height:50px; padding:6px 14px 6px 12px; text-align:left;
+  border-radius:25px; background:var(--glass); border:1px solid var(--line); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px)}
+.chip .dot{width:10px; height:10px; border-radius:50%; flex:none}
+.chip .t{min-width:0}
+.chip b{display:block; font-weight:600; font-size:14px; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.chip small{display:block; font-size:11px; line-height:1.25; color:var(--muted)}
+.swapbtn{flex:none; width:40px; height:40px; border-radius:50%; display:grid; place-items:center; background:var(--glass); border:1px solid var(--line);
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px)}
+.toast{margin:8px auto 0; width:fit-content; max-width:340px; padding:8px 14px; border-radius:16px; background:var(--glass); border:1px solid var(--line);
+  font-size:13px; text-align:center; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px)}
+
+.dock{position:absolute; left:0; right:0; bottom:calc(var(--sheet-h,190px) + 14px); z-index:3; min-height:48px; display:flex; justify-content:center; align-items:center;
+  padding:0 var(--gr) 0 var(--gl); pointer-events:none}
+.dock>*{pointer-events:auto}
+.start{min-height:48px; padding:0 22px; border-radius:24px; border:0; background:var(--fg); color:var(--ink); font-weight:600; font-size:15px}
+.gear{position:absolute; right:var(--gr); top:2px; width:44px; height:44px; border-radius:50%; display:grid; place-items:center;
+  background:var(--glass); border:1px solid var(--line); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px)}
+.nudge{position:absolute; right:var(--gr); bottom:calc(var(--sheet-h,190px) + 70px); z-index:4; width:min(290px,calc(100% - 32px)); padding:12px 14px;
+  border-radius:16px; background:var(--glass-solid); border:1px solid var(--line)}
+.nudge label{display:flex; justify-content:space-between; font-size:13px; color:var(--muted)}
+.nudge output{color:var(--fg); font-variant-numeric:tabular-nums}
+.nudge input{width:100%; margin:10px 0 0; accent-color:var(--path)}
+.nudge p{margin:8px 0 0; font-size:12px; color:var(--muted)}
+
+.sheet{position:absolute; left:0; right:0; bottom:0; z-index:3; padding:14px var(--gr) 14px var(--gl); background:var(--glass); border-top:1px solid var(--line);
+  border-radius:24px 24px 0 0; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px)}
+.hrow{display:flex; align-items:center; justify-content:space-between; gap:12px}
+.big{display:flex; align-items:baseline; gap:8px; min-width:0; white-space:nowrap}
+#rChord{font:700 44px/1 var(--display); letter-spacing:-.02em; font-variant-numeric:tabular-nums}
+#rUnit{font:600 18px var(--body); color:var(--muted)}
+.units{display:flex; flex:none; border:1px solid var(--line); border-radius:12px; overflow:hidden}
+.units button{min-height:38px; min-width:46px; padding:0 10px; background:transparent; color:var(--muted); border:0; font-weight:600; font-size:13px}
 .units button+button{border-left:1px solid var(--line)}
-.units button[aria-pressed="true"]{background:var(--fg); color:var(--bg)}
-.units button:focus-visible{outline:2px solid var(--path); outline-offset:-2px}
-@media (prefers-reduced-motion:no-preference){.btn{transition:background .15s}}
+.units button[aria-pressed="true"]{background:var(--fg); color:var(--ink)}
+.units button:focus-visible{outline-offset:-2px}
+.cap{margin:6px 0 0; font-size:13px; color:var(--muted)}
+.cap b{color:var(--fg); font-weight:500; font-variant-numeric:tabular-nums}
+.stats{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin:12px 0 0; border-top:1px solid var(--line)}
+.stats>div{padding:10px 0 0 12px; border-left:1px solid var(--line); min-width:0}
+.stats>div:first-child{padding-left:0; border-left:0}
+dt{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted)}
+dd{margin:2px 0 0; font:500 clamp(15px,4.5vw,18px)/1.25 var(--display); font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+
+.search{position:absolute; inset:0; z-index:10; background:rgba(5,10,12,.7); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px)}
+.panel{padding:12px var(--gr) 16px var(--gl); background:var(--glass-solid); border-bottom:1px solid var(--line); border-radius:0 0 24px 24px}
+.shead{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px}
+.shead b{font:500 18px var(--display)}
+.xbtn{width:40px; height:40px; border-radius:50%; border:0; background:var(--fill); display:grid; place-items:center}
+.field{display:flex; gap:8px}
+.field input{flex:1; min-width:0; min-height:48px; padding:0 14px; font-size:16px; background:var(--fill); border:1px solid var(--line); border-radius:14px}
+.field input::placeholder{color:var(--muted)}
+.gpsbtn{flex:none; min-height:48px; padding:0 16px; border-radius:14px; border:1px solid var(--line); background:var(--fill); font-weight:600; font-size:14px}
+.sug{list-style:none; margin:10px 0 0; padding:0; max-height:calc(100dvh - 190px); overflow:auto}
+.sug li+li{border-top:1px solid var(--line)}
+.opt{display:block; width:100%; min-height:50px; padding:8px 4px; text-align:left; background:none; border:0}
+.opt:hover{background:var(--fill)}
+.opt small{display:block; color:var(--muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.hint{padding:12px 4px; font-size:13px; color:var(--muted)}
 </style>
 
-<div class="wrap">
-  <header>
-    <h1>(Not) Flat Earth</h1>
-    <p class="sub">Point your phone at anywhere on Earth. The marker shows where it is, straight through the ground.</p>
+<div class="app" id="app">
+  <video id="cam" playsinline muted hidden></video>
+  <canvas id="view" role="img" aria-label="Camera view with a marker pointing through the ground to the chosen place"></canvas>
+
+  <header class="top" id="top">
+    <div class="row">
+      <button class="chip" id="fromChip" type="button" aria-label="Change where you are">
+        <span class="dot" style="background:var(--you)"></span>
+        <span class="t"><b id="fromName"></b><small>You are here</small></span>
+      </button>
+      <button class="swapbtn" id="swap" type="button" aria-label="Swap the two places">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h12M16 3l4 4-4 4M17 17H5M8 13l-4 4 4 4"/></svg>
+      </button>
+      <button class="chip" id="toChip" type="button" aria-label="Change what you are pointing at">
+        <span class="dot" style="background:var(--there)"></span>
+        <span class="t"><b id="toName"></b><small>Pointing at</small></span>
+      </button>
+    </div>
+    <p class="toast" id="toast" role="status" hidden></p>
   </header>
 
-  <section class="stage" id="stage">
-    <video id="cam" playsinline muted hidden></video>
-    <canvas id="view" role="img" aria-label="Viewfinder showing the direction to the chosen place"></canvas>
-  </section>
-  <p class="status" id="status" role="status">Drag to look around, or switch on your camera and compass.</p>
-
-  <div class="actions">
-    <button class="btn primary" id="live" type="button">Use camera and compass</button>
-    <label class="nudge" id="nudge" hidden>
-      <span>Compass nudge</span>
-      <input id="offset" type="range" min="-30" max="30" step="1" value="0">
-      <output id="offsetOut" for="offset">0°</output>
-    </label>
+  <div class="dock" id="dock">
+    <button class="start" id="live" type="button">Start camera and compass</button>
+    <button class="gear" id="gear" type="button" hidden aria-label="Compass nudge" aria-expanded="false">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+    </button>
+  </div>
+  <div class="nudge" id="nudge" hidden>
+    <label for="offset"><span>Compass nudge</span><output id="offsetOut" for="offset">0°</output></label>
+    <input id="offset" type="range" min="-30" max="30" step="1" value="0">
+    <p>If the marker sits off to one side, slide until it lines up with a place you know.</p>
   </div>
 
-  <div class="units" id="units" role="group" aria-label="Distance unit">
-    <button type="button" data-u="km" aria-pressed="true">km</button>
-    <button type="button" data-u="nm" aria-pressed="false">nm</button>
-    <button type="button" data-u="mi" aria-pressed="false">miles</button>
-  </div>
-
-  <dl class="read">
-    <div><dt>Heading</dt><dd id="rAz">—</dd></div>
-    <div><dt>Tilt</dt><dd id="rEl">—</dd></div>
-    <div><dt>Straight through</dt><dd id="rChord">—</dd></div>
-    <div><dt>Over the surface</dt><dd id="rSurf">—</dd></div>
-  </dl>
-
-  <section class="places">
-    <div class="place">
-      <label for="fromQ"><span class="dot" style="background:var(--you)"></span>You are at</label>
-      <div class="field">
-        <input id="fromQ" type="text" autocomplete="off" enterkeyhint="search" placeholder="Search any place">
-        <button class="btn" id="gps" type="button">Use GPS</button>
+  <section class="sheet" id="sheet" aria-label="Readouts">
+    <div class="hrow">
+      <div class="big"><span id="rChord">—</span><span id="rUnit">km</span></div>
+      <div class="units" id="units" role="group" aria-label="Distance unit">
+        <button type="button" data-u="km" aria-pressed="true">km</button>
+        <button type="button" data-u="nm" aria-pressed="false">nm</button>
+        <button type="button" data-u="mi" aria-pressed="false">miles</button>
       </div>
-      <ul class="sug" id="fromSug" hidden></ul>
-      <p class="coords" id="fromCoords"></p>
     </div>
-    <div class="place">
-      <label for="toQ"><span class="dot" style="background:var(--there)"></span>Pointing at</label>
-      <div class="field">
-        <input id="toQ" type="text" autocomplete="off" enterkeyhint="search" placeholder="Search any place">
-      </div>
-      <ul class="sug" id="toSug" hidden></ul>
-      <p class="coords" id="toCoords"></p>
-    </div>
-    <button class="btn swap" id="swap" type="button">Swap places</button>
+    <p class="cap">straight through the Earth · <b id="rSurf">—</b> over the surface</p>
+    <dl class="stats">
+      <div><dt>Heading</dt><dd id="rAz">—</dd></div>
+      <div><dt>Tilt</dt><dd id="rEl">—</dd></div>
+      <div><dt>Depth</dt><dd id="rDepth">—</dd></div>
+    </dl>
   </section>
+
+  <div class="search" id="search" hidden>
+    <div class="panel">
+      <div class="shead"><b id="sTitle">Where are you?</b>
+        <button class="xbtn" id="sClose" type="button" aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="field">
+        <input id="q" type="search" autocomplete="off" enterkeyhint="search" placeholder="Search any place" aria-label="Search any place">
+        <button class="gpsbtn" id="gps" type="button">Use GPS</button>
+      </div>
+      <ul class="sug" id="sug"></ul>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -160,6 +179,7 @@ function surfaceKm(a,b){
   const h=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
   return 2*RM*Math.asin(Math.min(1,Math.sqrt(h)))/1000;
 }
+function depthKm(surfKm){const R=RM/1000;return R*(1-Math.cos(surfKm/(2*R)));}
 function basisFromEuler(alpha,beta,gamma){
   const cA=Math.cos(alpha*D2R),sA=Math.sin(alpha*D2R),cB=Math.cos(beta*D2R),sB=Math.sin(beta*D2R),cG=Math.cos(gamma*D2R),sG=Math.sin(gamma*D2R);
   return {
@@ -261,13 +281,16 @@ Nairobi|-1.2921|36.8219
 Lagos|6.5244|3.3792
 North Pole|90|0
 South Pole|-90|0`.split('\n').map(function(l){const p=l.split('|');return {name:p[0],lat:+p[1],lon:+p[2]};});
+const QUICK=['Sydney','New York','London','Tokyo','Cairo','Cape Town','Rio de Janeiro','Reykjavik'].map(function(n){
+  const p=PLACES.find(function(x){return x.name===n;});return {name:p.name,detail:'Popular place',lat:p.lat,lon:p.lon};
+});
 
 const $=function(id){return document.getElementById(id);};
 const root=document.documentElement;
 const nf=new Intl.NumberFormat('en-GB',{maximumFractionDigits:0});
 const BODY='"IBM Plex Sans",system-ui,sans-serif';
-const cv=$('view'),ctx=cv.getContext('2d'),cam=$('cam'),stage=$('stage');
-const statusEl=$('status');
+const VFOV=66;
+const app=$('app'),cv=$('view'),ctx=cv.getContext('2d'),cam=$('cam'),topEl=$('top'),sheet=$('sheet'),dockEl=$('dock');
 
 function loadSaved(){try{return JSON.parse(localStorage.getItem('earthlens'))||{};}catch(e){return {};}}
 function saveState(){try{localStorage.setItem('earthlens',JSON.stringify({from:from,to:to,unit:unit}));}catch(e){}}
@@ -275,47 +298,82 @@ function valid(p){return p&&typeof p.name==='string'&&isFinite(p.lat)&&isFinite(
 const saved=loadSaved();
 let from=valid(saved.from)?saved.from:{name:'Space Needle, Seattle',lat:47.6205,lon:-122.3493};
 let to=valid(saved.to)?saved.to:{name:'New York',lat:40.7128,lon:-74.0060};
-
 const UF={km:1,nm:0.539956803,mi:0.621371192},UL={km:'km',nm:'nm',mi:'miles'};
 let unit=UF[saved.unit]?saved.unit:'km';
-function fmtDist(km){const v=km*UF[unit];return (v<100?v.toFixed(1):nf.format(v))+' '+UL[unit];}
-let A=null,S=0;
+function fmtNum(km){const v=km*UF[unit];return v<100?v.toFixed(1):nf.format(v);}
+function fmtDist(km){return fmtNum(km)+' '+UL[unit];}
+
+let A=null,S=0,DEP=0;
 let live=false,camOn=false,got=false,absSeen=false,headingOk=false;
-let offset=0,yaw=0,pitch=0,dpr=1,raf=0;
+let offset=0,yaw=0,pitch=0,dpr=1,raf=0,toastTimer=0;
 const sm={alpha:0,beta:90,gamma:0};
 
-function setStatus(t){statusEl.textContent=t;}
+function setStatus(t){
+  const el=$('toast');el.textContent=t;el.hidden=false;
+  clearTimeout(toastTimer);toastTimer=setTimeout(function(){el.hidden=true;schedule();},7000);
+  schedule();
+}
+$('toast').addEventListener('click',function(){$('toast').hidden=true;schedule();});
 function compass(az){return ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'][Math.round(az/22.5)%16];}
-function fmtCoord(p){return Math.abs(p.lat).toFixed(4)+'° '+(p.lat>=0?'N':'S')+', '+Math.abs(p.lon).toFixed(4)+'° '+(p.lon>=0?'E':'W');}
-function shortName(n){return n.length>26?n.slice(0,25)+'…':n;}
-
+function shortName(n){return n.length>24?n.slice(0,23)+'…':n;}
 function schedule(){if(!raf)raf=requestAnimationFrame(function(){raf=0;draw();});}
 
 function recompute(){
-  A=aim(from,to);S=surfaceKm(from,to);
+  A=aim(from,to);S=surfaceKm(from,to);DEP=depthKm(S);
+  $('fromName').textContent=from.name;$('toName').textContent=to.name;
+  $('rUnit').textContent=UL[unit];
   if(A.dir){
+    $('rChord').textContent=fmtNum(A.chordKm);
+    $('rSurf').textContent=fmtDist(S);
     $('rAz').textContent=Math.round(A.az)+'° '+compass(A.az);
     $('rEl').textContent=Math.abs(A.el).toFixed(1)+'° '+(A.el<=0?'down':'up');
-    $('rChord').textContent=fmtDist(A.chordKm);
-    $('rSurf').textContent=fmtDist(S);
+    $('rDepth').textContent=fmtDist(DEP);
   }else{
-    $('rAz').textContent='—';$('rEl').textContent='—';$('rChord').textContent=fmtDist(0);$('rSurf').textContent=fmtDist(0);
+    $('rChord').textContent='0';$('rSurf').textContent=fmtDist(0);
+    $('rAz').textContent='—';$('rEl').textContent='—';$('rDepth').textContent=fmtDist(0);
   }
-  $('fromCoords').textContent=fmtCoord(from);
-  $('toCoords').textContent=fmtCoord(to);
-  if(!live&&A.dir){yaw=A.az-12;pitch=Math.max(A.el+12,-85);}
+  if(!live&&A.dir){yaw=A.az-12;pitch=Math.max(Math.min(A.el+12,80),-85);}
   saveState();schedule();
 }
 
 function cssVar(n){return getComputedStyle(root).getPropertyValue(n).trim();}
+
+function funnel(x,y){
+  const rings=[[74,'#7a5632'],[60,'#5a3d25'],[46,'#41291a'],[33,'#2b1b12'],[20,'#170e09']];
+  ctx.save();ctx.globalAlpha=.85;ctx.lineWidth=1;ctx.strokeStyle='rgba(255,217,161,.5)';
+  rings.forEach(function(r){
+    ctx.fillStyle=r[1];ctx.beginPath();ctx.ellipse(x,y+(74-r[0])*0.16,r[0],r[0]*0.38,0,0,6.2832);ctx.fill();ctx.stroke();
+  });
+  ctx.restore();
+}
+
+function slice(ix,iy,theta,youC,thereC){
+  const r=30,cx=ix+36,cy=iy+36;
+  ctx.fillStyle='rgba(10,18,20,.78)';ctx.beginPath();
+  if(ctx.roundRect)ctx.roundRect(ix,iy,72,72,16);else ctx.rect(ix,iy,72,72);
+  ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(cx,cy,r,0,6.2832);ctx.stroke();
+  const t=Math.min(theta,Math.PI);
+  const x1=cx,y1=cy-r,x2=cx+r*Math.sin(t),y2=cy-r*Math.cos(t);
+  ctx.strokeStyle='#f0b24c';ctx.lineWidth=2.5;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  ctx.fillStyle=youC;ctx.beginPath();ctx.arc(x1,y1,3.6,0,6.2832);ctx.fill();
+  ctx.fillStyle=thereC;ctx.beginPath();ctx.arc(x2,y2,3.6,0,6.2832);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.5)';ctx.beginPath();ctx.arc(cx,cy,1.6,0,6.2832);ctx.fill();
+}
 
 function draw(){
   const W=cv.clientWidth,H=cv.clientHeight;
   if(!W||!H||!A)return;
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,W,H);
+  const cr=cv.getBoundingClientRect(),tr=topEl.getBoundingClientRect(),sr=sheet.getBoundingClientRect();
+  let vt=Math.max(0,tr.bottom-cr.top)+8,vb=Math.min(H,sr.top-cr.top)-8;
+  if(!$('live').hidden||!$('gear').hidden)vb=Math.min(vb,dockEl.getBoundingClientRect().top-cr.top-6);
+  if(vb-vt<120){vt=0;vb=H;}
   const b=live?basisFromEuler(sm.alpha-offset,sm.beta,sm.gamma):basisFromLook(yaw,pitch);
-  const F=(H/2)/Math.tan(30*D2R),cx=W/2,cy=H/2,L=3000;
+  const F=(H/2)/Math.tan(VFOV/2*D2R),cx=W/2,cy=H/2,L=3000;
   const ga=b.r[2],gb=-b.u[2],gc=b.f[2]*F,nn=Math.hypot(ga,gb);
   const youC=cssVar('--you'),thereC=cssVar('--there');
 
@@ -356,43 +414,49 @@ function draw(){
   ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=1.5;
   ctx.beginPath();ctx.moveTo(cx-9,cy);ctx.lineTo(cx+9,cy);ctx.moveTo(cx,cy-9);ctx.lineTo(cx,cy+9);ctx.stroke();
 
-  function pill(text,x,y){
+  function pill(text,x,y,accent){
     ctx.font='500 13px '+BODY;ctx.textAlign='left';ctx.textBaseline='middle';
     const w=ctx.measureText(text).width+20,h=26;
-    const x0=Math.max(8,Math.min(W-w-8,x-w/2)),y0=Math.max(8,Math.min(H-h-8,y-h/2));
-    ctx.fillStyle='rgba(8,16,18,.68)';ctx.beginPath();
+    const x0=Math.max(8,Math.min(W-w-8,x-w/2)),y0=Math.max(vt+2,Math.min(vb-h-2,y-h/2));
+    ctx.fillStyle=accent?'rgba(20,56,47,.9)':'rgba(8,16,18,.72)';ctx.beginPath();
     if(ctx.roundRect)ctx.roundRect(x0,y0,w,h,13);else ctx.rect(x0,y0,w,h);
-    ctx.fill();ctx.fillStyle='#fff';ctx.fillText(text,x0+10,y0+h/2+.5);
+    ctx.fill();ctx.fillStyle=accent?'#bff3e4':'#fff';ctx.fillText(text,x0+10,y0+h/2+.5);
   }
 
-  if(!A.dir){pill('You are standing on it',cx,cy+60);return;}
-  const q=project(b,A.dir,F,cx,cy),m=26;
-  const on=q.zc>0.02&&q.x>m&&q.x<W-m&&q.y>m&&q.y<H-m;
-  const label=shortName(to.name)+' · '+fmtDist(A.chordKm);
-  if(on){
-    ctx.lineWidth=6;ctx.strokeStyle='rgba(255,255,255,.9)';
-    ctx.beginPath();ctx.arc(q.x,q.y,22,0,6.2832);ctx.stroke();
-    ctx.lineWidth=3;ctx.strokeStyle=thereC;
-    ctx.beginPath();ctx.arc(q.x,q.y,22,0,6.2832);ctx.stroke();
-    ctx.fillStyle=thereC;ctx.beginPath();ctx.arc(q.x,q.y,5,0,6.2832);ctx.fill();
-    pill(label,q.x,q.y+42);
-  }else{
-    let vx=q.xc,vy=-q.yc;const len=Math.hypot(vx,vy);
-    if(len<1e-6){vx=0;vy=1;}else{vx/=len;vy/=len;}
-    const m2=40,tx2=vx!==0?(W/2-m2)/Math.abs(vx):Infinity,ty2=vy!==0?(H/2-m2)/Math.abs(vy):Infinity,tt=Math.min(tx2,ty2);
-    const ex=cx+vx*tt,ey=cy+vy*tt;
-    ctx.save();ctx.translate(ex,ey);ctx.rotate(Math.atan2(vy,vx));
-    ctx.beginPath();ctx.moveTo(16,0);ctx.lineTo(-9,10);ctx.lineTo(-9,-10);ctx.closePath();
-    ctx.fillStyle=thereC;ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='rgba(255,255,255,.9)';ctx.stroke();
-    ctx.restore();
-    pill(label,ex-vx*60,ey-vy*34);
-  }
+  if(!A.dir){pill('You are standing on it',cx,(vt+vb)/2);return;}
 
   const camAz=Math.atan2(b.f[0],b.f[1])/D2R,camEl=Math.asin(Math.max(-1,Math.min(1,b.f[2])))/D2R;
   const dAz=((A.az-camAz+540)%360)-180,dEl=A.el-camEl,hint=[];
   if(Math.abs(dAz)>3)hint.push('turn '+(dAz>0?'right ':'left ')+Math.round(Math.abs(dAz))+'°');
   if(Math.abs(dEl)>3)hint.push('tilt '+(dEl<0?'down ':'up ')+Math.round(Math.abs(dEl))+'°');
-  pill(hint.length?hint.join(' · '):'On target',cx,24);
+  pill(hint.length?hint.join(' · '):'On target',cx,vt+16,!hint.length);
+  slice(Math.max(16,8),vt+50,S/(RM/1000),youC,thereC);
+
+  const q=project(b,A.dir,F,cx,cy),m=26;
+  const on=q.zc>0.02&&q.x>m&&q.x<W-m&&q.y>vt+m&&q.y<vb-m;
+  const label=shortName(to.name)+' · '+fmtDist(A.chordKm);
+  if(on){
+    if(A.el<-8)funnel(q.x,q.y);
+    ctx.lineWidth=6;ctx.strokeStyle='rgba(255,255,255,.92)';
+    ctx.beginPath();ctx.arc(q.x,q.y,22,0,6.2832);ctx.stroke();
+    ctx.lineWidth=3;ctx.strokeStyle=thereC;
+    ctx.beginPath();ctx.arc(q.x,q.y,22,0,6.2832);ctx.stroke();
+    ctx.fillStyle=thereC;ctx.beginPath();ctx.arc(q.x,q.y,5,0,6.2832);ctx.fill();
+    pill(label,q.x,q.y-52);
+  }else{
+    let vx=q.xc,vy=-q.yc;const len=Math.hypot(vx,vy);
+    if(len<1e-6){vx=0;vy=1;}else{vx/=len;vy/=len;}
+    const m2=36,rx=W/2,ry=(vt+vb)/2,hw=W/2-m2,hh=(vb-vt)/2-m2;
+    const tx2=vx!==0?hw/Math.abs(vx):Infinity,ty2=vy!==0?hh/Math.abs(vy):Infinity,tt=Math.min(tx2,ty2);
+    const ex=rx+vx*tt,ey=ry+vy*tt;
+    ctx.save();ctx.translate(ex,ey);ctx.rotate(Math.atan2(vy,vx));
+    ctx.beginPath();ctx.moveTo(16,0);ctx.lineTo(-9,10);ctx.lineTo(-9,-10);ctx.closePath();
+    ctx.fillStyle=thereC;ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='rgba(255,255,255,.92)';ctx.stroke();
+    ctx.restore();
+    ctx.font='500 13px '+BODY;
+    const pw=ctx.measureText(label).width+20;
+    pill(label,ex-vx*(pw/2+26),ey-vy*30);
+  }
 }
 
 (function(){
@@ -400,7 +464,7 @@ function draw(){
   cv.addEventListener('pointerdown',function(e){if(live)return;drag={x:e.clientX,y:e.clientY};try{cv.setPointerCapture(e.pointerId);}catch(x){}});
   cv.addEventListener('pointermove',function(e){
     if(!drag)return;
-    const k=60/cv.clientHeight;
+    const k=VFOV/cv.clientHeight;
     yaw=((yaw-(e.clientX-drag.x)*k)%360+360)%360;
     pitch=Math.max(-89,Math.min(89,pitch+(e.clientY-drag.y)*k));
     drag={x:e.clientX,y:e.clientY};schedule();
@@ -408,18 +472,23 @@ function draw(){
   ['pointerup','pointercancel'].forEach(function(n){cv.addEventListener(n,function(){drag=null;});});
 })();
 
-new ResizeObserver(function(){
+const ro=new ResizeObserver(function(){
   dpr=Math.min(window.devicePixelRatio||1,3);
-  cv.width=Math.round(cv.clientWidth*dpr);cv.height=Math.round(cv.clientHeight*dpr);schedule();
-}).observe(stage);
+  cv.width=Math.round(cv.clientWidth*dpr);cv.height=Math.round(cv.clientHeight*dpr);
+  app.style.setProperty('--sheet-h',Math.round(sheet.getBoundingClientRect().height)+'px');
+  schedule();
+});
+ro.observe(app);ro.observe(sheet);ro.observe(topEl);
 
 function onOri(e){
-  if(e.type==='deviceorientationabsolute'){absSeen=true;headingOk=true;}
-  else if(absSeen)return;
+  const isAbs=e.type==='deviceorientationabsolute';
+  if(!isAbs&&absSeen)return;
   let a=e.alpha;const b=e.beta,g=e.gamma;
-  if(typeof e.webkitCompassHeading==='number'){a=360-e.webkitCompassHeading;headingOk=true;}
-  else if(e.absolute===true)headingOk=true;
+  const wk=typeof e.webkitCompassHeading==='number';
+  if(wk)a=360-e.webkitCompassHeading;
   if(a==null||b==null||g==null)return;
+  if(isAbs)absSeen=true;
+  if(wk||isAbs||e.absolute===true)headingOk=true;
   if(!got){sm.alpha=a;sm.beta=b;sm.gamma=g;got=true;}
   else{
     const k=.3,da=((a-sm.alpha+540)%360)-180;
@@ -449,20 +518,26 @@ async function goLive(){
     cam.srcObject=s;await cam.play();cam.hidden=false;camOn=true;
   }catch(err){camOn=false;}
   await new Promise(function(r){setTimeout(r,1200);});
+  $('gear').hidden=!live;
   if(live&&camOn){
     setStatus(headingOk?'Live. Follow the hint at the top of the view.':'Live, but this phone gives no compass heading. Use the nudge to line the marker up.');
-    $('live').hidden=true;$('nudge').hidden=false;
+    $('live').hidden=true;
   }else if(live){
     setStatus('Motion works, but the camera is blocked here, so you get the demo sky behind the marker.');
-    $('nudge').hidden=false;
+    $('live').textContent='Try camera again';
   }else if(camOn){
     setStatus('The camera is on, but no motion data arrived. Drag to look around.');
+    $('live').textContent='Try compass again';
   }else{
-    setStatus('This view blocks the camera and compass, so you are still on the demo scene. Open the page from its own https address on your phone to use them.');
+    setStatus('This view blocks the camera and compass. Open the page from its own https address on your phone to use them.');
+    $('live').textContent='Try again';
   }
   schedule();
 }
 $('live').addEventListener('click',goLive);
+$('gear').addEventListener('click',function(){
+  const p=$('nudge');p.hidden=!p.hidden;$('gear').setAttribute('aria-expanded',String(!p.hidden));
+});
 $('offset').addEventListener('input',function(e){offset=+e.target.value;$('offsetOut').textContent=(offset>0?'+':'')+offset+'°';schedule();});
 
 let remoteDown=false;
@@ -495,63 +570,63 @@ async function search(q){
   return out;
 }
 
-function wirePicker(key){
-  const q=$(key+'Q'),list=$(key+'Sug');
-  let seq=0,timer=0,items=[];
-  function pick(it){
-    const p={name:it.name,lat:it.lat,lon:it.lon};
-    if(key==='from')from=p;else to=p;
-    q.value=p.name;list.hidden=true;items=[];recompute();
-  }
-  function render(typed){
-    list.textContent='';
-    items.forEach(function(it){
-      const li=document.createElement('li'),bt=document.createElement('button');
-      bt.type='button';bt.className='opt';bt.textContent=it.name;
-      const sm2=document.createElement('small');sm2.textContent=it.detail;bt.appendChild(sm2);
-      bt.addEventListener('click',function(){pick(it);});
-      li.appendChild(bt);list.appendChild(li);
-    });
-    if(remoteDown||!items.length){
-      const li=document.createElement('li');li.className='hint';
-      li.textContent=items.length?'Online place search is not available here, so these are built-in places.':
-        (remoteDown?'No built-in match. Try a big city nearby, or type coordinates like 51.5, -0.12.':'No match. Try a different spelling.');
-      list.appendChild(li);
-    }
-    list.hidden=false;
-  }
-  q.addEventListener('input',function(){
-    clearTimeout(timer);
-    if(q.value.trim().length<2){list.hidden=true;return;}
-    timer=setTimeout(async function(){
-      const my=++seq,res=await search(q.value);
-      if(my!==seq)return;
-      items=res;render();
-    },300);
+const sEl=$('search'),qEl=$('q'),sug=$('sug'),gpsBtn=$('gps');
+let picking='from',seq=0,timer=0,items=[];
+function renderSug(typed){
+  sug.textContent='';
+  items.forEach(function(it){
+    const li=document.createElement('li'),bt=document.createElement('button');
+    bt.type='button';bt.className='opt';bt.textContent=it.name;
+    const sm2=document.createElement('small');sm2.textContent=it.detail;bt.appendChild(sm2);
+    bt.addEventListener('click',function(){pick(it);});
+    li.appendChild(bt);sug.appendChild(li);
   });
-  q.addEventListener('keydown',function(e){
-    if(e.key==='Enter'&&items.length){e.preventDefault();pick(items[0]);}
-    if(e.key==='Escape')list.hidden=true;
-  });
-  q.addEventListener('focus',function(){q.select();});
-  q.addEventListener('blur',function(){setTimeout(function(){list.hidden=true;},150);});
-  list.addEventListener('mousedown',function(e){e.preventDefault();});
-  q.value=(key==='from'?from:to).name;
+  if(typed&&(remoteDown||!items.length)){
+    const li=document.createElement('li');li.className='hint';
+    li.textContent=items.length?'Online place search is not available here, so these are built-in places.':
+      (remoteDown?'No built-in match. Try a big city nearby, or type coordinates like 51.5, -0.12.':'No match. Try a different spelling.');
+    sug.appendChild(li);
+  }
 }
-wirePicker('from');wirePicker('to');
-
-$('swap').addEventListener('click',function(){
-  const t=from;from=to;to=t;$('fromQ').value=from.name;$('toQ').value=to.name;recompute();
+function openSearch(which){
+  picking=which;
+  $('sTitle').textContent=which==='from'?'Where are you?':'What are you pointing at?';
+  gpsBtn.hidden=which!=='from';
+  qEl.value='';items=QUICK.slice();renderSug(false);
+  sEl.hidden=false;setTimeout(function(){qEl.focus();},60);
+}
+function closeSearch(){sEl.hidden=true;qEl.blur();}
+function pick(it){
+  const p={name:it.name,lat:it.lat,lon:it.lon};
+  if(picking==='from')from=p;else to=p;
+  closeSearch();recompute();
+}
+qEl.addEventListener('input',function(){
+  clearTimeout(timer);
+  if(qEl.value.trim().length<2){items=QUICK.slice();renderSug(false);return;}
+  timer=setTimeout(async function(){
+    const my=++seq,res=await search(qEl.value);
+    if(my!==seq)return;
+    items=res;renderSug(true);
+  },300);
 });
+qEl.addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&items.length){e.preventDefault();pick(items[0]);}
+  if(e.key==='Escape')closeSearch();
+});
+$('sClose').addEventListener('click',closeSearch);
+sEl.addEventListener('click',function(e){if(e.target===sEl)closeSearch();});
+$('fromChip').addEventListener('click',function(){openSearch('from');});
+$('toChip').addEventListener('click',function(){openSearch('to');});
+$('swap').addEventListener('click',function(){const t=from;from=to;to=t;recompute();});
 
-$('gps').addEventListener('click',function(){
-  if(!navigator.geolocation){setStatus('This browser has no location access. Search for where you are instead.');return;}
-  setStatus('Finding you…');
+gpsBtn.addEventListener('click',function(){
+  if(!navigator.geolocation){setStatus('This browser has no location access. Search for where you are instead.');closeSearch();return;}
+  setStatus('Finding you…');closeSearch();
   try{
     navigator.geolocation.getCurrentPosition(function(pos){
       from={name:'My location',lat:pos.coords.latitude,lon:pos.coords.longitude};
-      $('fromQ').value=from.name;recompute();
-      setStatus('Got your location.');
+      recompute();setStatus('Got your location.');
     },function(){
       setStatus('Location is blocked here. Search for where you are instead.');
     },{enableHighAccuracy:true,timeout:10000,maximumAge:30000});
@@ -565,6 +640,7 @@ function setUnit(u){
 }
 document.querySelectorAll('#units button').forEach(function(b){b.addEventListener('click',function(){setUnit(b.dataset.u);});});
 setUnit(unit);
+setStatus('Drag to look around, or start the camera and compass.');
 })();
 </script>
 
