@@ -47,6 +47,14 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--path); outline-
 .start{min-height:48px; padding:0 22px; border-radius:24px; border:0; background:var(--fg); color:var(--ink); font-weight:600; font-size:15px}
 .gear{position:absolute; right:var(--gr); top:2px; width:44px; height:44px; border-radius:50%; display:grid; place-items:center;
   background:var(--glass); border:1px solid var(--line); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px)}
+.fact{position:absolute; left:var(--gl); bottom:calc(var(--sheet-h,190px) + 14px); z-index:3; width:min(236px,calc(100% - var(--gl) - var(--gr) - 60px));
+  padding:10px 13px 12px; border-radius:16px; background:rgba(8,48,136,.6); border:1px solid rgba(200,225,255,.28); color:#fff;
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); pointer-events:none; font-size:13px; line-height:1.4;
+  opacity:0; transform:translateY(6px); transition:opacity .6s ease, transform .6s ease}
+.fact.show{opacity:1; transform:none}
+.fact b{display:block; margin-bottom:3px; font-size:10.5px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:#a9d6ff}
+.fact span{text-shadow:0 1px 3px rgba(0,20,60,.5)}
+@media (prefers-reduced-motion:reduce){.fact{transition:none; transform:none}}
 .nudge{max-height:calc(100% - var(--sheet-h,190px) - 70px - 132px); overflow-y:auto; position:absolute; right:var(--gr); bottom:calc(var(--sheet-h,190px) + 70px); z-index:4; width:min(290px,calc(100% - 32px)); padding:12px 14px;
   border-radius:16px; background:var(--glass-solid); border:1px solid var(--line)}
 .nudge label{display:flex; justify-content:space-between; font-size:13px; color:var(--muted)}
@@ -120,6 +128,7 @@ dd{margin:2px 0 0; font:500 clamp(15px,4.5vw,18px)/1.25 var(--display); font-var
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
     </button>
   </div>
+  <aside class="fact" id="fact" role="status" aria-live="polite" aria-hidden="true"><b>Earth fact</b><span id="factText"></span></aside>
   <div class="nudge" id="nudge" hidden>
     <label for="offset"><span>Compass nudge</span><output id="offsetOut" for="offset">0°</output></label>
     <input id="offset" type="range" min="-30" max="30" step="1" value="0">
@@ -701,6 +710,7 @@ async function goLive(){
   if(live&&camOn){
     setStatus(headingOk?'Live. Follow the hint at the top of the view.':'Live, but this phone gives no compass heading. Use the nudge to line the marker up.');
     $('live').hidden=true;
+    setTimeout(maybeShowFact,2500);
   }else if(live){
     setStatus('Motion works, but the camera is blocked here, so you get the demo sky behind the marker.');
     $('live').textContent='Try camera again';
@@ -729,6 +739,17 @@ function showSkyBtn(){const bt=$('skyBtn');bt.setAttribute('aria-pressed',String
 $('skyBtn').addEventListener('click',function(){showSky=!showSky;showSkyBtn();saveState();schedule();});
 showSkyBtn();
 setInterval(schedule,20000);
+
+const FACTS=["Earth is about 12,742 km across, so no straight tunnel through it could be longer than that.","Earth is about 43 km wider across the equator than from pole to pole.","Chimborazo in Ecuador, not Everest, is the point on land farthest from Earth's centre.","The Challenger Deep, the deepest part of the ocean, is nearly 11 km below the surface.","Eratosthenes measured Earth's size around 240 BC using shadows in two Egyptian cities.","About 71% of Earth's surface is covered by water.","Earth's circumference around the equator is about 40,075 km.","From a plane at 10,000 m, the horizon is roughly 360 km away.","Earth's crust is only 5 to 70 km thick, a thin skin on a planet 6,371 km deep.","Earth's inner core is solid, about as wide as Pluto, and roughly as hot as the Sun's surface.","Only about 4% of land has more land on the opposite side of the Earth. The rest faces ocean.","London to Sydney is about 17,000 km over the surface, but only 12,400 km straight through.","The deepest hole ever drilled, in Russia, reaches 12 km, under 0.2% of the way to the centre.","Over 10 km, the Earth's surface curves away from a straight line by about 8 metres.","The Pacific Ocean covers about a third of the entire planet's surface.","The metre was first defined as one ten-millionth of the distance from the equator to the North Pole.","One degree of latitude is about 111 km, and a nautical mile is one minute of it.","Earth spins at about 1,670 km/h at the equator, and much slower near the poles.","At 60° north, one degree of longitude is only about 56 km wide.","Greenland looks as big as Africa on many maps, but Africa is about 14 times larger.","Mount Everest is less than 0.14% of Earth's radius high.","The Mariana Trench plunges deeper below sea level than Everest rises above it.","Antarctica holds about 90% of the world's ice.","Earth is not a perfect sphere. It is squashed by its own spin into an oblate spheroid.","The ocean's surface isn't flat. Gravity makes bumps and dips of up to about 100 m.","Magnetic north wanders by tens of kilometres a year, so compass headings slowly drift.","The Dead Sea shore, about 430 m below sea level, is the lowest dry land on Earth.","Light from the Sun takes about 8 minutes and 20 seconds to reach Earth.","Earth turns once in about 23 hours 56 minutes relative to the stars, not 24.","The Moon is about 30 Earth-widths away, roughly 384,000 km.","Earth moves around the Sun at about 107,000 km/h.","The mid-ocean ridge is Earth's longest mountain range, about 65,000 km, almost all underwater.","At eye height of 1.7 m, the horizon is only about 4.7 km away.","Earth's surface area is about 510 million km², and roughly 29% of it is land.","Parts of Spain are almost exactly opposite parts of New Zealand.","The Antipodes Islands near New Zealand are roughly opposite the English Channel.","You weigh about half a percent less at the equator than at the poles.","Tectonic plates move a few centimetres a year, about as fast as your fingernails grow.","The Atlantic Ocean is getting wider by about 2.5 cm every year.","Earth's days are getting longer by about 1.7 milliseconds per century.","Earth is the densest planet in the solar system.","Lake Baikal in Russia holds about 20% of the world's unfrozen fresh water.","The usual edge of space is 100 km up, only about 1.6% of Earth's radius above you.","Earth's mass is about 6 sextillion tonnes, which is a 6 followed by 21 zeros.","Flights from London to Los Angeles often pass near Greenland, because shortest routes curve on flat maps.","The shortest path over the surface is a great circle, and the shortest of all goes straight through.","Earth's mantle is about 2,900 km thick and flows, very slowly, over millions of years.","Earth's atmosphere has no sharp top. It just thins out gradually into space.","Earth's outer core is liquid metal, and its motion creates the planet's magnetic field.","Earth is the only known planet with liquid water on its surface."];
+function dayNumber(){const d=new Date();return Math.floor(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/86400000);}
+function maybeShowFact(){
+  const day=dayNumber();
+  try{if(localStorage.getItem('earthlens-fact')===String(day))return;}catch(e){}
+  try{localStorage.setItem('earthlens-fact',String(day));}catch(e){}
+  const el=$('fact');$('factText').textContent=FACTS[day%FACTS.length];
+  el.setAttribute('aria-hidden','false');el.classList.add('show');
+  setTimeout(function(){el.classList.remove('show');el.setAttribute('aria-hidden','true');},13000);
+}
 
 let remoteDown=false;
 function norm(s){return s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();}
