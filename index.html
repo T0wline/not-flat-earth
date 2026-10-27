@@ -238,6 +238,17 @@ function lockUpdate(locked,errDeg,zoneDeg){
   if(zoneDeg<=0)return false;
   return locked?errDeg<=zoneDeg*1.5:errDeg<zoneDeg;
 }
+function fuseHeading(st,relU,H,dt){
+  st.P=Math.min(32400,st.P+0.04*dt);
+  const wh=Math.hypot(relU[0],relU[1]);
+  if(wh>0.7){
+    const w=wh*wh,meas=H-Math.atan2(relU[0],relU[1])/D2R,R=16/w;
+    const d=((meas-st.off+540)%360+360)%360-180,K=st.P/(st.P+R);
+    st.off=((st.off+K*d)%360+360)%360;
+    st.P*=1-K;
+  }
+  return st.off;
+}
 function skyBodies(ms,lat,lon){
   const n=ms/86400000+2440587.5-2451545.0,th=(280.46061837+360.98564736629*n)*D2R;
   const eps=(23.439-0.0000004*n)*D2R,ce=Math.cos(eps),se=Math.sin(eps);
@@ -374,7 +385,8 @@ let live=false,camOn=false,got=false,absSeen=false,headingOk=false;
 let offset=0,yaw=0,pitch=0,dpr=1,raf=0,toastTimer=0,lastT=0,locked=false;
 let smooth=Number.isFinite(saved.smooth)?Math.max(0,Math.min(10,Math.round(saved.smooth))):6;
 let zone=Number.isFinite(saved.zone)?Math.max(0,Math.min(8,Math.round(saved.zone))):3;
-const sb={f:[0,1,0],u:[0,0,1]};
+const sb={f:[0,1,0],u:[0,0,1]},fus={off:0,P:32400};
+let fusing=false,hinted=false,locked0=false;
 let showSky=saved.sky!==false;
 
 function setStatus(t){
@@ -671,15 +683,20 @@ ro.observe(app);ro.observe(sheet);ro.observe(topEl);
 function onOri(e){
   const isAbs=e.type==='deviceorientationabsolute';
   if(!isAbs&&absSeen)return;
-  let a=e.alpha;const b=e.beta,g=e.gamma;
-  const wk=typeof e.webkitCompassHeading==='number';
-  if(wk)a=360-e.webkitCompassHeading;
+  const a=e.alpha,b=e.beta,g=e.gamma;
+  const wk=!isAbs&&typeof e.webkitCompassHeading==='number'&&e.webkitCompassHeading>=0;
   if(a==null||b==null||g==null)return;
   if(isAbs)absSeen=true;
-  if(wk||isAbs||e.absolute===true)headingOk=true;
-  const raw=basisFromEuler(a,b,g),now=performance.now();
+  const now=performance.now(),dt=got?Math.min(0.1,Math.max(0.001,(now-lastT)/1000)):0.016;
+  let raw=basisFromEuler(a,b,g);
+  if(wk){
+    fusing=true;
+    const off=fuseHeading(fus,raw.u,e.webkitCompassHeading,dt);
+    raw={f:rotZ(raw.f,off),u:rotZ(raw.u,off),r:rotZ(raw.r,off)};
+    if(fus.P<100){headingOk=true;if(hinted&&!locked0){locked0=true;setStatus('Compass locked.');}}
+  }else if(isAbs||e.absolute===true)headingOk=true;
   if(!got){sb.f=raw.f.slice();sb.u=raw.u.slice();got=true;lastT=now;live=true;schedule();return;}
-  const dt=Math.min(0.1,Math.max(0.001,(now-lastT)/1000));lastT=now;
+  lastT=now;
   const dev=filterStep(sb,raw,dt,smooth);
   live=true;
   if(dev>=0.15)schedule();
@@ -708,7 +725,8 @@ async function goLive(){
   await new Promise(function(r){setTimeout(r,1200);});
   $('gear').hidden=!live;
   if(live&&camOn){
-    setStatus(headingOk?'Live. Follow the hint at the top of the view.':'Live, but this phone gives no compass heading. Use the nudge to line the marker up.');
+    if(fusing&&!headingOk)hinted=true;
+    setStatus(headingOk?'Live. Follow the hint at the top of the view.':fusing?'Tilt your phone toward the ground for a second to lock the compass.':'Live, but this phone gives no compass heading. Use the nudge to line the marker up.');
     $('live').hidden=true;
     setTimeout(maybeShowFact,2500);
   }else if(live){
